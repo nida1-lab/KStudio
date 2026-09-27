@@ -45,6 +45,11 @@ class MainActivity : Activity() {
         codeEditor.setText("")
 
         updateLineNumbers()
+
+        codeEditor.post {
+            syncLineHeight()
+        }
+
         highlightCode()
 
         codeEditor.addTextChangedListener(object : TextWatcher {
@@ -69,6 +74,10 @@ class MainActivity : Activity() {
             override fun afterTextChanged(s: Editable?) {
                 if (!changingText) {
                     highlightCode()
+
+                    codeEditor.post {
+                        syncLineHeight()
+                    }
                 }
             }
         })
@@ -76,7 +85,10 @@ class MainActivity : Activity() {
         // Scroll Line Numbers
 
         codeEditor.viewTreeObserver.addOnScrollChangedListener {
-            lineNumbers.scrollTo(0, codeEditor.scrollY)
+            lineNumbers.scrollTo(
+                0,
+                codeEditor.scrollY
+            )
         }
 
         // Run
@@ -148,6 +160,7 @@ class MainActivity : Activity() {
         val builder = StringBuilder()
 
         for (i in 1..lineCount) {
+
             builder.append(i)
 
             if (i < lineCount) {
@@ -159,27 +172,59 @@ class MainActivity : Activity() {
 
         val digits = lineCount.toString().length
 
-        lineNumbers.minWidth = 32 + (digits * 10)
+        lineNumbers.minWidth =
+            32 + (digits * 10)
+    }
+
+    // Line Height
+
+    private fun syncLineHeight() {
+
+        val lineHeight = codeEditor.lineHeight
+
+        lineNumbers.setLineSpacing(
+            0f,
+            1.0f
+        )
+
+        lineNumbers.textSize =
+            codeEditor.textSize /
+            resources.displayMetrics.scaledDensity
+
+        lineNumbers.includeFontPadding =
+            false
+
+        lineNumbers.minHeight =
+            lineHeight
     }
 
     // Search
 
     private fun searchCode() {
 
-        val keyword = searchInput.text.toString()
+        val keyword =
+            searchInput.text.toString()
 
         if (keyword.isEmpty()) {
             return
         }
 
-        val text = codeEditor.text.toString()
+        val text =
+            codeEditor.text.toString()
 
-        val start = codeEditor.selectionEnd.coerceAtLeast(0)
+        val start =
+            codeEditor.selectionEnd.coerceAtLeast(0)
 
-        var index = text.indexOf(keyword, start)
+        var index =
+            text.indexOf(
+                keyword,
+                start
+            )
 
         if (index == -1) {
-            index = text.indexOf(keyword)
+
+            index =
+                text.indexOf(keyword)
         }
 
         if (index != -1) {
@@ -192,6 +237,7 @@ class MainActivity : Activity() {
             )
 
             codeEditor.post {
+
                 codeEditor.scrollTo(
                     0,
                     getScrollPosition(index)
@@ -208,18 +254,23 @@ class MainActivity : Activity() {
 
     private fun jumpToLine() {
 
-        val line = lineInput.text
-            .toString()
-            .toIntOrNull()
+        val line =
+            lineInput.text
+                .toString()
+                .toIntOrNull()
 
         if (line == null || line < 1) {
+
             lineInput.text.clear()
+
             return
         }
 
-        val text = codeEditor.text.toString()
+        val text =
+            codeEditor.text.toString()
 
-        val lines = text.split("\n")
+        val lines =
+            text.split("\n")
 
         val targetLine =
             line.coerceAtMost(lines.size)
@@ -227,34 +278,49 @@ class MainActivity : Activity() {
         var position = 0
 
         for (i in 0 until targetLine - 1) {
-            position += lines[i].length + 1
+
+            position +=
+                lines[i].length + 1
         }
 
         codeEditor.requestFocus()
 
         codeEditor.setSelection(
-            position.coerceAtMost(text.length)
+            position.coerceAtMost(
+                text.length
+            )
         )
 
         codeEditor.post {
+
             codeEditor.scrollTo(
                 0,
                 getScrollPosition(position)
             )
         }
 
+        // Line Clear
+
         lineInput.text.clear()
     }
 
     // Scroll Position
 
-    private fun getScrollPosition(position: Int): Int {
+    private fun getScrollPosition(
+        position: Int
+    ): Int {
 
-        val layout = codeEditor.layout ?: return 0
+        val layout =
+            codeEditor.layout
+                ?: return 0
 
-        val line = layout.getLineForOffset(
-            position.coerceIn(0, codeEditor.length())
-        )
+        val line =
+            layout.getLineForOffset(
+                position.coerceIn(
+                    0,
+                    codeEditor.length()
+                )
+            )
 
         return (
             line * codeEditor.lineHeight -
@@ -270,9 +336,11 @@ class MainActivity : Activity() {
             return
         }
 
-        val text = codeEditor.text.toString()
+        val text =
+            codeEditor.text.toString()
 
-        val spannable = SpannableString(text)
+        val spannable =
+            SpannableString(text)
 
         if (spannable.isEmpty()) {
             return
@@ -315,15 +383,22 @@ class MainActivity : Activity() {
         for (keyword in keywords) {
 
             val pattern =
-                Pattern.compile("\\b$keyword\\b")
+                Pattern.compile(
+                    "\\b$keyword\\b"
+                )
 
-            val matcher = pattern.matcher(text)
+            val matcher =
+                pattern.matcher(text)
 
             while (matcher.find()) {
 
                 spannable.setSpan(
                     ForegroundColorSpan(
-                        Color.rgb(150, 60, 180)
+                        Color.rgb(
+                            150,
+                            60,
+                            180
+                        )
                     ),
                     matcher.start(),
                     matcher.end(),
@@ -335,7 +410,9 @@ class MainActivity : Activity() {
         // Strings
 
         val stringPattern =
-            Pattern.compile("\"[^\"]*\"")
+            Pattern.compile(
+                "\"[^\"]*\""
+            )
 
         val stringMatcher =
             stringPattern.matcher(text)
@@ -344,7 +421,11 @@ class MainActivity : Activity() {
 
             spannable.setSpan(
                 ForegroundColorSpan(
-                    Color.rgb(40, 140, 70)
+                    Color.rgb(
+                        40,
+                        140,
+                        70
+                    )
                 ),
                 stringMatcher.start(),
                 stringMatcher.end(),
@@ -355,7 +436,9 @@ class MainActivity : Activity() {
         // Comments
 
         val commentPattern =
-            Pattern.compile("//.*")
+            Pattern.compile(
+                "//.*"
+            )
 
         val commentMatcher =
             commentPattern.matcher(text)
@@ -363,7 +446,9 @@ class MainActivity : Activity() {
         while (commentMatcher.find()) {
 
             spannable.setSpan(
-                ForegroundColorSpan(Color.GRAY),
+                ForegroundColorSpan(
+                    Color.GRAY
+                ),
                 commentMatcher.start(),
                 commentMatcher.end(),
                 android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
@@ -378,7 +463,9 @@ class MainActivity : Activity() {
 
         changingText = true
 
-        codeEditor.setText(spannable)
+        codeEditor.setText(
+            spannable
+        )
 
         val safeStart =
             selectionStart.coerceIn(
@@ -406,26 +493,33 @@ class MainActivity : Activity() {
 
         previewContainer.removeAllViews()
 
-        val preview = TextView(this).apply {
+        val preview =
+            TextView(this).apply {
 
-            text =
-                if (codeEditor.text.isEmpty()) {
-                    "KStudio is ready."
-                } else {
-                    "KStudio is running!\n\n" +
-                    "Code length: ${codeEditor.text.length}"
-                }
+                text =
+                    if (codeEditor.text.isEmpty()) {
 
-            textSize = 16f
+                        "KStudio is ready."
 
-            setPadding(
-                24,
-                24,
-                24,
-                24
-            )
-        }
+                    } else {
 
-        previewContainer.addView(preview)
+                        "KStudio is running!\n\n" +
+                        "Code length: " +
+                        codeEditor.text.length
+                    }
+
+                textSize = 16f
+
+                setPadding(
+                    24,
+                    24,
+                    24,
+                    24
+                )
+            }
+
+        previewContainer.addView(
+            preview
+        )
     }
 }
