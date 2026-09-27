@@ -90,23 +90,37 @@ class MainActivity : Activity() {
         searchButton.setOnClickListener {
             searchCode()
         }
-
         // Search Enter
 
-        searchInput.setOnEditorActionListener { _, actionId, event ->
+searchInput.setOnEditorActionListener { _, actionId, event ->
 
-            val enter =
-                actionId == EditorInfo.IME_ACTION_SEARCH ||
-                event?.keyCode == KeyEvent.KEYCODE_ENTER
+    val enter =
+        actionId == EditorInfo.IME_ACTION_SEARCH ||
+        event?.keyCode == KeyEvent.KEYCODE_ENTER
 
-            if (enter) {
-                searchCode()
-                true
-            } else {
-                false
-            }
-        }
+    if (enter) {
+        searchCode()
+        true
+    } else {
+        false
+    }
+}
 
+// Line Enter
+
+lineInput.setOnEditorActionListener { _, actionId, event ->
+
+    val enter =
+        actionId == EditorInfo.IME_ACTION_GO ||
+        event?.keyCode == KeyEvent.KEYCODE_ENTER
+
+    if (enter) {
+        jumpToLine()
+        true
+    } else {
+        false
+    }
+}
         // Line Button
 
         lineButton.setOnClickListener {
