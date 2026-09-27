@@ -177,7 +177,17 @@ lineInput.setOnEditorActionListener { _, actionId, event ->
     }
 
     // Search
+class MainActivity : Activity() {
 
+    // 変数とか
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        // 起動処理
+    }
+
+    // Search
     private fun searchCode() {
 
         val keyword = searchInput.text.toString()
@@ -188,8 +198,7 @@ lineInput.setOnEditorActionListener { _, actionId, event ->
 
         val text = codeEditor.text.toString()
 
-        val start = codeEditor.selectionEnd
-            .coerceAtLeast(0)
+        val start = codeEditor.selectionEnd.coerceAtLeast(0)
 
         var index = text.indexOf(keyword, start)
 
@@ -214,9 +223,12 @@ lineInput.setOnEditorActionListener { _, actionId, event ->
             }
         }
 
+        // Search Clear
         searchInput.text.clear()
     }
 
+}
+    
     // Line Jump
 
     private fun jumpToLine() {
