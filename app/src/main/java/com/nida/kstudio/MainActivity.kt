@@ -175,18 +175,7 @@ lineInput.setOnEditorActionListener { _, actionId, event ->
 
         lineNumbers.minWidth = 32 + (digits * 10)
     }
-
-    // Search
-class MainActivity : Activity() {
-
-    // 変数とか
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-
-        // 起動処理
-    }
-
+    
     // Search
     private fun searchCode() {
 
