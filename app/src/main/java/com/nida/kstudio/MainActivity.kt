@@ -80,30 +80,6 @@ class MainActivity : Activity() {
             }
         })
 
-        // Auto Brackets
-
-        codeEditor.setOnKeyListener { _, keyCode, event ->
-
-            if (event.action != android.view.KeyEvent.ACTION_DOWN) {
-                return@setOnKeyListener false
-            }
-
-            val cursor = codeEditor.selectionStart
-
-            if (cursor < 0) {
-                return@setOnKeyListener false
-            }
-
-            val pair = when (keyCode) {
-                android.view.KeyEvent.KEYCODE_LEFT_BRACKET -> "{}"
-                android.view.KeyEvent.KEYCODE_9 -> "()"
-                android.view.KeyEvent.KEYCODE_LEFT_BRACKET -> "{}"
-                else -> null
-            }
-
-            false
-        }
-
         // Run
 
         runButton.setOnClickListener {
