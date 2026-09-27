@@ -4,7 +4,6 @@ import android.app.Activity
 import android.os.Bundle
 import android.graphics.Color
 import android.text.Editable
-import android.text.SpannableString
 import android.text.TextWatcher
 import android.text.style.ForegroundColorSpan
 import android.view.KeyEvent
@@ -18,12 +17,12 @@ import java.util.regex.Pattern
 class MainActivity : Activity() {
 
     private lateinit var codeEditor: EditText
-    private lateinit var lineNumbers: TextView
+    private lateinit var lineNumbers: LineNumberView
     private lateinit var searchInput: EditText
     private lateinit var lineInput: EditText
     private lateinit var previewContainer: FrameLayout
 
-    private var changingText = false
+    private var highlighting = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -36,60 +35,66 @@ class MainActivity : Activity() {
         lineInput = findViewById(R.id.lineInput)
         previewContainer = findViewById(R.id.previewContainer)
 
-        val runButton = findViewById<Button>(R.id.runButton)
-        val searchButton = findViewById<Button>(R.id.searchButton)
-        val lineButton = findViewById<Button>(R.id.lineButton)
+        val runButton =
+            findViewById<Button>(R.id.runButton)
+
+        val searchButton =
+            findViewById<Button>(R.id.searchButton)
+
+        val lineButton =
+            findViewById<Button>(R.id.lineButton)
 
         // Editor
 
         codeEditor.setText("")
 
-        updateLineNumbers()
+        lineNumbers.setEditor(codeEditor)
 
-        codeEditor.post {
-            syncLineHeight()
-        }
+        codeEditor.addTextChangedListener(
+            object : TextWatcher {
 
-        highlightCode()
+                override fun beforeTextChanged(
+                    s: CharSequence?,
+                    start: Int,
+                    count: Int,
+                    after: Int
+                ) {
+                }
 
-        codeEditor.addTextChangedListener(object : TextWatcher {
+                override fun onTextChanged(
+                    s: CharSequence?,
+                    start: Int,
+                    before: Int,
+                    count: Int
+                ) {
+                    lineNumbers.invalidate()
+                }
 
-            override fun beforeTextChanged(
-                s: CharSequence?,
-                start: Int,
-                count: Int,
-                after: Int
-            ) {
-            }
-
-            override fun onTextChanged(
-                s: CharSequence?,
-                start: Int,
-                before: Int,
-                count: Int
-            ) {
-                updateLineNumbers()
-            }
-
-            override fun afterTextChanged(s: Editable?) {
-                if (!changingText) {
-                    highlightCode()
-
-                    codeEditor.post {
-                        syncLineHeight()
+                override fun afterTextChanged(
+                    s: Editable?
+                ) {
+                    if (!highlighting) {
+                        highlightCode()
                     }
+
+                    lineNumbers.invalidate()
                 }
             }
-        })
+        )
 
-        // Scroll Line Numbers
+        // Scroll
 
-        codeEditor.viewTreeObserver.addOnScrollChangedListener {
-            lineNumbers.scrollTo(
-                0,
-                codeEditor.scrollY
-            )
-        }
+        codeEditor.viewTreeObserver
+            .addOnScrollChangedListener {
+                lineNumbers.invalidate()
+            }
+
+        // Layout
+
+        codeEditor.viewTreeObserver
+            .addOnGlobalLayoutListener {
+                lineNumbers.invalidate()
+            }
 
         // Run
 
@@ -97,15 +102,14 @@ class MainActivity : Activity() {
             updatePreview()
         }
 
-        // Search Button
+        // Search
 
         searchButton.setOnClickListener {
             searchCode()
         }
 
-        // Search Enter
-
-        searchInput.setOnEditorActionListener { _, actionId, event ->
+        searchInput.setOnEditorActionListener {
+                _, actionId, event ->
 
             val enter =
                 actionId == EditorInfo.IME_ACTION_SEARCH ||
@@ -119,15 +123,14 @@ class MainActivity : Activity() {
             }
         }
 
-        // Line Button
+        // Line Jump
 
         lineButton.setOnClickListener {
             jumpToLine()
         }
 
-        // Line Enter
-
-        lineInput.setOnEditorActionListener { _, actionId, event ->
+        lineInput.setOnEditorActionListener {
+                _, actionId, event ->
 
             val enter =
                 actionId == EditorInfo.IME_ACTION_GO ||
@@ -141,61 +144,10 @@ class MainActivity : Activity() {
             }
         }
 
+        // Initial
+
+        lineNumbers.invalidate()
         updatePreview()
-    }
-
-    // Line Numbers
-
-    private fun updateLineNumbers() {
-
-        val text = codeEditor.text.toString()
-
-        val lineCount =
-            if (text.isEmpty()) {
-                1
-            } else {
-                text.count { it == '\n' } + 1
-            }
-
-        val builder = StringBuilder()
-
-        for (i in 1..lineCount) {
-
-            builder.append(i)
-
-            if (i < lineCount) {
-                builder.append("\n")
-            }
-        }
-
-        lineNumbers.text = builder.toString()
-
-        val digits = lineCount.toString().length
-
-        lineNumbers.minWidth =
-            32 + (digits * 10)
-    }
-
-    // Line Height
-
-    private fun syncLineHeight() {
-
-        val lineHeight = codeEditor.lineHeight
-
-        lineNumbers.setLineSpacing(
-            0f,
-            1.0f
-        )
-
-        lineNumbers.textSize =
-            codeEditor.textSize /
-            resources.displayMetrics.scaledDensity
-
-        lineNumbers.includeFontPadding =
-            false
-
-        lineNumbers.minHeight =
-            lineHeight
     }
 
     // Search
@@ -222,7 +174,6 @@ class MainActivity : Activity() {
             )
 
         if (index == -1) {
-
             index =
                 text.indexOf(keyword)
         }
@@ -237,15 +188,14 @@ class MainActivity : Activity() {
             )
 
             codeEditor.post {
-
                 codeEditor.scrollTo(
                     0,
                     getScrollPosition(index)
                 )
+
+                lineNumbers.invalidate()
             }
         }
-
-        // Search Clear
 
         searchInput.text.clear()
     }
@@ -260,9 +210,7 @@ class MainActivity : Activity() {
                 .toIntOrNull()
 
         if (line == null || line < 1) {
-
             lineInput.text.clear()
-
             return
         }
 
@@ -278,18 +226,19 @@ class MainActivity : Activity() {
         var position = 0
 
         for (i in 0 until targetLine - 1) {
-
             position +=
                 lines[i].length + 1
         }
 
-        codeEditor.requestFocus()
-
-        codeEditor.setSelection(
-            position.coerceAtMost(
+        position =
+            position.coerceIn(
+                0,
                 text.length
             )
-        )
+
+        codeEditor.requestFocus()
+
+        codeEditor.setSelection(position)
 
         codeEditor.post {
 
@@ -297,9 +246,9 @@ class MainActivity : Activity() {
                 0,
                 getScrollPosition(position)
             )
-        }
 
-        // Line Clear
+            lineNumbers.invalidate()
+        }
 
         lineInput.text.clear()
     }
@@ -332,27 +281,45 @@ class MainActivity : Activity() {
 
     private fun highlightCode() {
 
-        if (changingText) {
+        val editable =
+            codeEditor.text ?: return
+
+        if (highlighting) {
             return
+        }
+
+        highlighting = true
+
+        // Remove old colors
+
+        val oldSpans =
+            editable.getSpans(
+                0,
+                editable.length,
+                ForegroundColorSpan::class.java
+            )
+
+        for (span in oldSpans) {
+
+            editable.removeSpan(span)
         }
 
         val text =
-            codeEditor.text.toString()
+            editable.toString()
 
-        val spannable =
-            SpannableString(text)
+        if (text.isEmpty()) {
 
-        if (spannable.isEmpty()) {
+            highlighting = false
             return
         }
 
-        // Reset
+        // Default
 
-        spannable.setSpan(
+        editable.setSpan(
             ForegroundColorSpan(Color.BLACK),
             0,
-            spannable.length,
-            android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+            editable.length,
+            0
         )
 
         // Keywords
@@ -392,7 +359,7 @@ class MainActivity : Activity() {
 
             while (matcher.find()) {
 
-                spannable.setSpan(
+                editable.setSpan(
                     ForegroundColorSpan(
                         Color.rgb(
                             150,
@@ -402,7 +369,7 @@ class MainActivity : Activity() {
                     ),
                     matcher.start(),
                     matcher.end(),
-                    android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                    0
                 )
             }
         }
@@ -419,7 +386,7 @@ class MainActivity : Activity() {
 
         while (stringMatcher.find()) {
 
-            spannable.setSpan(
+            editable.setSpan(
                 ForegroundColorSpan(
                     Color.rgb(
                         40,
@@ -429,7 +396,7 @@ class MainActivity : Activity() {
                 ),
                 stringMatcher.start(),
                 stringMatcher.end(),
-                android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                0
             )
         }
 
@@ -445,46 +412,19 @@ class MainActivity : Activity() {
 
         while (commentMatcher.find()) {
 
-            spannable.setSpan(
+            editable.setSpan(
                 ForegroundColorSpan(
                     Color.GRAY
                 ),
                 commentMatcher.start(),
                 commentMatcher.end(),
-                android.text.Spannable.SPAN_EXCLUSIVE_EXCLUSIVE
+                0
             )
         }
 
-        val selectionStart =
-            codeEditor.selectionStart
+        highlighting = false
 
-        val selectionEnd =
-            codeEditor.selectionEnd
-
-        changingText = true
-
-        codeEditor.setText(
-            spannable
-        )
-
-        val safeStart =
-            selectionStart.coerceIn(
-                0,
-                codeEditor.length()
-            )
-
-        val safeEnd =
-            selectionEnd.coerceIn(
-                0,
-                codeEditor.length()
-            )
-
-        codeEditor.setSelection(
-            safeStart,
-            safeEnd
-        )
-
-        changingText = false
+        lineNumbers.invalidate()
     }
 
     // Preview
