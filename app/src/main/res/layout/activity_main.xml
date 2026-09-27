@@ -21,6 +21,7 @@
             android:layout_weight="1"
             android:hint="コードを検索..."
             android:singleLine="true"
+            android:imeOptions="actionSearch"
             android:inputType="text"
             android:paddingStart="12dp"
             android:paddingEnd="12dp" />
@@ -37,6 +38,7 @@
             android:layout_height="match_parent"
             android:hint="行"
             android:inputType="number"
+            android:imeOptions="actionGo"
             android:gravity="center"
             android:singleLine="true" />
 
@@ -92,7 +94,8 @@
             android:paddingEnd="8dp"
             android:text="1"
             android:textColor="#777777"
-            android:textSize="15sp" />
+            android:textSize="15sp"
+            android:includeFontPadding="false" />
 
         <EditText
             android:id="@+id/codeEditor"
@@ -106,6 +109,9 @@
             android:background="#F5F5F5"
             android:hint="// Write Kotlin code..."
             android:textSize="15sp"
+            android:includeFontPadding="false"
+            android:lineSpacingExtra="0dp"
+            android:lineSpacingMultiplier="1.0"
             android:scrollbars="vertical"
             android:overScrollMode="always" />
 
