@@ -23,6 +23,7 @@ class MainActivity : Activity() {
     private lateinit var previewContainer: FrameLayout
 
     private var highlighting = false
+    private var autoPairing = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -73,7 +74,7 @@ class MainActivity : Activity() {
                 override fun afterTextChanged(
                     s: Editable?
                 ) {
-                    if (!highlighting) {
+                    if (!highlighting && !autoPairing) {
                         highlightCode()
                     }
 
@@ -81,6 +82,42 @@ class MainActivity : Activity() {
                 }
             }
         )
+
+        // Auto Pair
+
+        codeEditor.setOnKeyListener { _, keyCode, event ->
+
+            if (event.action != KeyEvent.ACTION_DOWN) {
+                return@setOnKeyListener false
+            }
+
+            if (keyCode == KeyEvent.KEYCODE_DEL) {
+
+                return@setOnKeyListener handleDeletePair()
+            }
+
+            val pair =
+                when (event.unicodeChar.toChar()) {
+                    '{' -> '}'
+                    '(' -> ')'
+                    '[' -> ']'
+                    '"' -> '"'
+                    '\'' -> '\''
+                    else -> null
+                }
+
+            if (pair != null) {
+
+                insertPair(
+                    event.unicodeChar.toChar(),
+                    pair
+                )
+
+                true
+            } else {
+                false
+            }
+        }
 
         // Scroll
 
@@ -150,6 +187,125 @@ class MainActivity : Activity() {
         updatePreview()
     }
 
+    // Auto Pair
+
+    private fun insertPair(
+        open: Char,
+        close: Char
+    ) {
+
+        val start =
+            codeEditor.selectionStart
+
+        val end =
+            codeEditor.selectionEnd
+
+        if (start < 0 || end < 0) {
+            return
+        }
+
+        val selected =
+            codeEditor.text
+                .subSequence(start, end)
+                .toString()
+
+        val replacement =
+            if (selected.isEmpty()) {
+                "$open$close"
+            } else {
+                "$open$selected$close"
+            }
+
+        autoPairing = true
+
+        codeEditor.text.replace(
+            start,
+            end,
+            replacement
+        )
+
+        autoPairing = false
+
+        val cursorPosition =
+            if (selected.isEmpty()) {
+                start + 1
+            } else {
+                start + replacement.length
+            }
+
+        codeEditor.setSelection(
+            cursorPosition.coerceAtMost(
+                codeEditor.length()
+            )
+        )
+
+        highlightCode()
+        lineNumbers.invalidate()
+    }
+
+    // Delete Pair
+
+    private fun handleDeletePair(): Boolean {
+
+        val start =
+            codeEditor.selectionStart
+
+        val end =
+            codeEditor.selectionEnd
+
+        if (start < 0 || end < 0) {
+            return false
+        }
+
+        if (start != end) {
+            return false
+        }
+
+        if (start <= 0 ||
+            start >= codeEditor.length()
+        ) {
+            return false
+        }
+
+        val text =
+            codeEditor.text
+
+        val left =
+            text[start - 1]
+
+        val right =
+            text[start]
+
+        val isPair =
+            (left == '{' && right == '}') ||
+            (left == '(' && right == ')') ||
+            (left == '[' && right == ']') ||
+            (left == '"' && right == '"') ||
+            (left == '\'' && right == '\'')
+
+        if (!isPair) {
+            return false
+        }
+
+        autoPairing = true
+
+        text.delete(
+            start - 1,
+            start + 1
+        )
+
+        autoPairing = false
+
+        codeEditor.setSelection(
+            (start - 1).coerceAtLeast(0)
+        )
+
+        highlightCode()
+        lineNumbers.invalidate()
+
+        return true
+    }
+
     // Search
 
     private fun searchCode() {
@@ -188,6 +344,7 @@ class MainActivity : Activity() {
             )
 
             codeEditor.post {
+
                 codeEditor.scrollTo(
                     0,
                     getScrollPosition(index)
@@ -300,7 +457,6 @@ class MainActivity : Activity() {
             )
 
         for (span in oldSpans) {
-
             editable.removeSpan(span)
         }
 
@@ -308,7 +464,6 @@ class MainActivity : Activity() {
             editable.toString()
 
         if (text.isEmpty()) {
-
             highlighting = false
             return
         }
