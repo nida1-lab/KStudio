@@ -562,8 +562,7 @@ private fun showErrorDetail(
     val root =
         LinearLayout(this).apply {
 
-            orientation =
-                LinearLayout.VERTICAL
+            orientation = LinearLayout.VERTICAL
 
             setPadding(
                 20,
@@ -589,6 +588,13 @@ private fun showErrorDetail(
                     50
                 )
             )
+
+            setPadding(
+                0,
+                0,
+                0,
+                20
+            )
         }
 
     root.addView(title)
@@ -599,7 +605,8 @@ private fun showErrorDetail(
         TextView(this).apply {
 
             text =
-                "\n$message\n\n" +
+                message +
+                "\n\n" +
                 "ファイル: $fileName\n" +
                 "場所: ${line}行目\n" +
                 "種類: $source"
@@ -608,7 +615,7 @@ private fun showErrorDetail(
 
             setPadding(
                 0,
-                20,
+                10,
                 0,
                 20
             )
@@ -630,12 +637,13 @@ private fun showErrorDetail(
                         Context.CLIPBOARD_SERVICE
                     ) as ClipboardManager
 
-                clipboard.setPrimaryClip(
+                val clip =
                     ClipData.newPlainText(
                         "KStudio Error",
                         code
                     )
-                )
+
+                clipboard.setPrimaryClip(clip)
 
                 Toast.makeText(
                     this@MainActivity,
@@ -645,7 +653,13 @@ private fun showErrorDetail(
             }
         }
 
-    root.addView(copyButton)
+    root.addView(
+        copyButton,
+        LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+    )
 
     // Back
 
@@ -657,16 +671,22 @@ private fun showErrorDetail(
             setOnClickListener {
 
                 showError(
-                    line,
-                    code,
-                    fileName,
-                    message,
-                    source
+                    line = line,
+                    code = code,
+                    fileName = fileName,
+                    message = message,
+                    source = source
                 )
             }
         }
 
-    root.addView(backButton)
+    root.addView(
+        backButton,
+        LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        )
+    )
 
     previewContainer.addView(root)
 }
