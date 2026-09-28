@@ -587,6 +587,25 @@ private fun showErrorDetail(
                     50,
                     50
                 )
+
+        setPadding(
+            0,
+            0,
+            0,
+            20
+        )
+
+        setOnClickListener {
+
+            showError(
+                line = line,
+                code = code,
+                fileName = fileName,
+                message = message,
+                source = source
+            )
+        }
+    }
             )
 
             setPadding(
