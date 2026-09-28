@@ -606,7 +606,6 @@ private fun showErrorDetail(
             )
         }
     }
-            )
 
             setPadding(
                 0,
