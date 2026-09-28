@@ -559,116 +559,103 @@ private fun showErrorDetail(
 
     previewContainer.removeAllViews()
 
-    val root =
-        LinearLayout(this).apply {
+    val root = LinearLayout(this)
 
-            orientation = LinearLayout.VERTICAL
+    root.orientation = LinearLayout.VERTICAL
 
-            setPadding(
-                20,
-                20,
-                20,
-                20
-            )
-        }
+    root.setPadding(
+        20,
+        20,
+        20,
+        20
+    )
 
     // Code
 
-    val title =
-        TextView(this).apply {
+    val title = TextView(this)
 
-            text = code
+    title.text = code
+    title.textSize = 28f
 
-            textSize = 28f
-
-            setTextColor(
-                Color.rgb(
-                    190,
-                    50,
-                    50
-                )
-
-        setPadding(
-            0,
-            0,
-            0,
-            20
+    title.setTextColor(
+        Color.rgb(
+            190,
+            50,
+            50
         )
+    )
 
-        setOnClickListener {
+    title.setPadding(
+        0,
+        0,
+        0,
+        20
+    )
 
-            showError(
-                line = line,
-                code = code,
-                fileName = fileName,
-                message = message,
-                source = source
-            )
-        }
+    // K001をもう一度押すとエラーコード画面へ戻る
 
-            setPadding(
-                0,
-                0,
-                0,
-                20
-            )
-        }
+    title.setOnClickListener {
+
+        showError(
+            line = line,
+            code = code,
+            fileName = fileName,
+            message = message,
+            source = source
+        )
+    }
 
     root.addView(title)
 
     // Description
 
-    val description =
-        TextView(this).apply {
+    val description = TextView(this)
 
-            text =
-                message +
-                "\n\n" +
-                "ファイル: $fileName\n" +
-                "場所: ${line}行目\n" +
-                "種類: $source"
+    description.text =
+        message +
+        "\n\n" +
+        "ファイル: $fileName\n" +
+        "場所: ${line}行目\n" +
+        "種類: $source"
 
-            textSize = 16f
+    description.textSize = 16f
 
-            setPadding(
-                0,
-                10,
-                0,
-                20
-            )
-        }
+    description.setPadding(
+        0,
+        10,
+        0,
+        20
+    )
 
     root.addView(description)
 
     // Copy
 
-    val copyButton =
-        Button(this).apply {
+    val copyButton = Button(this)
 
-            text = "エラーコードをコピー"
+    copyButton.text = "エラーコードをコピー"
 
-            setOnClickListener {
+    copyButton.setOnClickListener {
 
-                val clipboard =
-                    getSystemService(
-                        Context.CLIPBOARD_SERVICE
-                    ) as ClipboardManager
+        val clipboard =
+            getSystemService(
+                Context.CLIPBOARD_SERVICE
+            ) as ClipboardManager
 
-                val clip =
-                    ClipData.newPlainText(
-                        "KStudio Error",
-                        code
-                    )
+        val clip =
+            ClipData.newPlainText(
+                "KStudio Error",
+                code
+            )
 
-                clipboard.setPrimaryClip(clip)
+        clipboard.setPrimaryClip(clip)
 
-                Toast.makeText(
-                    this@MainActivity,
-                    "$code をコピーしました",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-        }
+        Toast.makeText(
+            this,
+            "$code をコピーしました",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
 
     root.addView(
         copyButton,
@@ -678,36 +665,8 @@ private fun showErrorDetail(
         )
     )
 
-    // Back
-
-    val backButton =
-        Button(this).apply {
-
-            text = "エラーコードに戻る"
-
-            setOnClickListener {
-
-                showError(
-                    line = line,
-                    code = code,
-                    fileName = fileName,
-                    message = message,
-                    source = source
-                )
-            }
-        }
-
-    root.addView(
-        backButton,
-        LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        )
-    )
-
     previewContainer.addView(root)
 }
-
     // Auto Pair
 
     private fun insertPair(
