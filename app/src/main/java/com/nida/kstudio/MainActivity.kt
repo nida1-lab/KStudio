@@ -605,7 +605,6 @@ private fun showErrorDetail(
                 source = source
             )
         }
-    }
 
             setPadding(
                 0,
