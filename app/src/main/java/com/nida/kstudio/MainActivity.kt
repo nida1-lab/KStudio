@@ -124,6 +124,7 @@ class MainActivity : Activity() {
                 )
 
                 true
+
             } else {
                 false
             }
@@ -201,17 +202,15 @@ class MainActivity : Activity() {
 
     private fun runKStudio() {
 
-        /*
-         * 現在はError UIのテスト用。
-         *
-         * 将来的にはここを
-         *
-         * Kotlin / Gradle Build
-         *        ↓
-         * Error Parser
-         *
-         * に置き換える。
-         */
+        // Test message
+
+        Toast.makeText(
+            this,
+            "RUN TEST",
+            Toast.LENGTH_SHORT
+        ).show()
+
+        // Error UI test
 
         showError(
             line = 10,
@@ -248,7 +247,7 @@ class MainActivity : Activity() {
                 )
             }
 
-        // Error Header
+        // Header
 
         val header =
             TextView(this).apply {
@@ -258,7 +257,11 @@ class MainActivity : Activity() {
                 textSize = 22f
 
                 setTextColor(
-                    Color.rgb(210, 40, 40)
+                    Color.rgb(
+                        210,
+                        40,
+                        40
+                    )
                 )
 
                 setPadding(
@@ -271,7 +274,7 @@ class MainActivity : Activity() {
 
         root.addView(header)
 
-        // Source Selector
+        // Source
 
         val sourceLabel =
             TextView(this).apply {
@@ -349,7 +352,11 @@ class MainActivity : Activity() {
                 textSize = 16f
 
                 setTextColor(
-                    Color.rgb(40, 100, 210)
+                    Color.rgb(
+                        40,
+                        100,
+                        210
+                    )
                 )
 
                 setPadding(
@@ -360,6 +367,7 @@ class MainActivity : Activity() {
                 )
 
                 setOnClickListener {
+
                     lineInput.setText(
                         line.toString()
                     )
@@ -370,7 +378,7 @@ class MainActivity : Activity() {
 
         errorRow.addView(lineView)
 
-        // Code
+        // Error Code
 
         val codeView =
             TextView(this).apply {
@@ -380,7 +388,11 @@ class MainActivity : Activity() {
                 textSize = 16f
 
                 setTextColor(
-                    Color.rgb(180, 60, 60)
+                    Color.rgb(
+                        180,
+                        60,
+                        60
+                    )
                 )
 
                 setPadding(
@@ -463,7 +475,7 @@ class MainActivity : Activity() {
 
         root.addView(errorRow)
 
-        // Error Message
+        // Message
 
         val messageView =
             TextView(this).apply {
@@ -482,7 +494,7 @@ class MainActivity : Activity() {
 
         root.addView(messageView)
 
-        // Copy Button
+        // Copy
 
         val copyButton =
             Button(this).apply {
@@ -518,7 +530,7 @@ class MainActivity : Activity() {
 
         root.addView(copyButton)
 
-        // Back / Preview
+        // Preview
 
         val previewButton =
             Button(this).apply {
@@ -561,19 +573,27 @@ class MainActivity : Activity() {
                 )
             }
 
+        // Code
+
         val title =
             TextView(this).apply {
 
-                text = "$code"
+                text = code
 
                 textSize = 28f
 
                 setTextColor(
-                    Color.rgb(190, 50, 50)
+                    Color.rgb(
+                        190,
+                        50,
+                        50
+                    )
                 )
             }
 
         root.addView(title)
+
+        // Description
 
         val description =
             TextView(this).apply {
@@ -595,6 +615,8 @@ class MainActivity : Activity() {
             }
 
         root.addView(description)
+
+        // Copy
 
         val copyButton =
             Button(this).apply {
@@ -624,6 +646,8 @@ class MainActivity : Activity() {
             }
 
         root.addView(copyButton)
+
+        // Back
 
         val backButton =
             Button(this).apply {
@@ -666,7 +690,10 @@ class MainActivity : Activity() {
 
         val selected =
             codeEditor.text
-                .subSequence(start, end)
+                .subSequence(
+                    start,
+                    end
+                )
                 .toString()
 
         val replacement =
@@ -721,7 +748,8 @@ class MainActivity : Activity() {
             return false
         }
 
-        if (start <= 0 ||
+        if (
+            start <= 0 ||
             start >= codeEditor.length()
         ) {
             return false
@@ -781,7 +809,8 @@ class MainActivity : Activity() {
             codeEditor.text.toString()
 
         val start =
-            codeEditor.selectionEnd.coerceAtLeast(0)
+            codeEditor.selectionEnd
+                .coerceAtLeast(0)
 
         var index =
             text.indexOf(
@@ -826,7 +855,10 @@ class MainActivity : Activity() {
                 .toString()
                 .toIntOrNull()
 
-        if (line == null || line < 1) {
+        if (
+            line == null ||
+            line < 1
+        ) {
             lineInput.text.clear()
             return
         }
@@ -838,11 +870,14 @@ class MainActivity : Activity() {
             text.split("\n")
 
         val targetLine =
-            line.coerceAtMost(lines.size)
+            line.coerceAtMost(
+                lines.size
+            )
 
         var position = 0
 
         for (i in 0 until targetLine - 1) {
+
             position +=
                 lines[i].length + 1
         }
@@ -855,7 +890,9 @@ class MainActivity : Activity() {
 
         codeEditor.requestFocus()
 
-        codeEditor.setSelection(position)
+        codeEditor.setSelection(
+            position
+        )
 
         codeEditor.post {
 
@@ -899,7 +936,8 @@ class MainActivity : Activity() {
     private fun highlightCode() {
 
         val editable =
-            codeEditor.text ?: return
+            codeEditor.text
+                ?: return
 
         if (highlighting) {
             return
@@ -927,34 +965,37 @@ class MainActivity : Activity() {
         }
 
         editable.setSpan(
-            ForegroundColorSpan(Color.BLACK),
+            ForegroundColorSpan(
+                Color.BLACK
+            ),
             0,
             editable.length,
             0
         )
 
-        val keywords = arrayOf(
-            "fun",
-            "val",
-            "var",
-            "class",
-            "object",
-            "if",
-            "else",
-            "when",
-            "for",
-            "while",
-            "return",
-            "import",
-            "package",
-            "private",
-            "public",
-            "protected",
-            "override",
-            "true",
-            "false",
-            "null"
-        )
+        val keywords =
+            arrayOf(
+                "fun",
+                "val",
+                "var",
+                "class",
+                "object",
+                "if",
+                "else",
+                "when",
+                "for",
+                "while",
+                "return",
+                "import",
+                "package",
+                "private",
+                "public",
+                "protected",
+                "override",
+                "true",
+                "false",
+                "null"
+            )
 
         for (keyword in keywords) {
 
@@ -1068,4 +1109,3 @@ class MainActivity : Activity() {
         )
     }
 }
-     
