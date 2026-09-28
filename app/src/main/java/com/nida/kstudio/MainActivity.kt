@@ -547,129 +547,129 @@ class MainActivity : Activity() {
         previewContainer.addView(root)
     }
 
-    // Error Detail
+// Error Detail
 
-    private fun showErrorDetail(
-        line: Int,
-        code: String,
-        fileName: String,
-        message: String,
-        source: String
-    ) {
+private fun showErrorDetail(
+    line: Int,
+    code: String,
+    fileName: String,
+    message: String,
+    source: String
+) {
 
-        previewContainer.removeAllViews()
+    previewContainer.removeAllViews()
 
-        val root =
-            LinearLayout(this).apply {
+    val root =
+        LinearLayout(this).apply {
 
-                orientation =
-                    LinearLayout.VERTICAL
+            orientation =
+                LinearLayout.VERTICAL
 
-                setPadding(
-                    20,
-                    20,
-                    20,
-                    20
+            setPadding(
+                20,
+                20,
+                20,
+                20
+            )
+        }
+
+    // Code
+
+    val title =
+        TextView(this).apply {
+
+            text = code
+
+            textSize = 28f
+
+            setTextColor(
+                Color.rgb(
+                    190,
+                    50,
+                    50
                 )
-            }
+            )
+        }
 
-        // Code
+    root.addView(title)
 
-        val title =
-            TextView(this).apply {
+    // Description
 
-                text = code
+    val description =
+        TextView(this).apply {
 
-                textSize = 28f
+            text =
+                "\n$message\n\n" +
+                "ファイル: $fileName\n" +
+                "場所: ${line}行目\n" +
+                "種類: $source"
 
-                setTextColor(
-                    Color.rgb(
-                        190,
-                        50,
-                        50
+            textSize = 16f
+
+            setPadding(
+                0,
+                20,
+                0,
+                20
+            )
+        }
+
+    root.addView(description)
+
+    // Copy
+
+    val copyButton =
+        Button(this).apply {
+
+            text = "エラーコードをコピー"
+
+            setOnClickListener {
+
+                val clipboard =
+                    getSystemService(
+                        Context.CLIPBOARD_SERVICE
+                    ) as ClipboardManager
+
+                clipboard.setPrimaryClip(
+                    ClipData.newPlainText(
+                        "KStudio Error",
+                        code
                     )
                 )
+
+                Toast.makeText(
+                    this@MainActivity,
+                    "$code をコピーしました",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
+        }
 
-        root.addView(title)
+    root.addView(copyButton)
 
-        // Description
+    // Back
 
-        val description =
-            TextView(this).apply {
+    val backButton =
+        Button(this).apply {
 
-                text =
-                    "\n$message\n\n" +
-                    "ファイル: $fileName\n" +
-                    "場所: ${line}行目\n" +
-                    "種類: $source"
+            text = "エラーコードに戻る"
 
-                textSize = 16f
+            setOnClickListener {
 
-                setPadding(
-                    0,
-                    20,
-                    0,
-                    20
+                showError(
+                    line,
+                    code,
+                    fileName,
+                    message,
+                    source
                 )
             }
+        }
 
-        root.addView(description)
+    root.addView(backButton)
 
-        // Copy
-
-        val copyButton =
-            Button(this).apply {
-
-                text = "エラーコードをコピー"
-
-                setOnClickListener {
-
-                    val clipboard =
-                        getSystemService(
-                            Context.CLIPBOARD_SERVICE
-                        ) as ClipboardManager
-
-                    clipboard.setPrimaryClip(
-                        ClipData.newPlainText(
-                            "KStudio Error",
-                            code
-                        )
-                    )
-
-                    Toast.makeText(
-                        this@MainActivity,
-                        "$code をコピーしました",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
-            }
-
-        root.addView(copyButton)
-
-        // Back
-
-        val backButton =
-            Button(this).apply {
-
-                text = "エラー一覧に戻る"
-
-                setOnClickListener {
-
-                    showError(
-                        line,
-                        code,
-                        fileName,
-                        message,
-                        source
-                    )
-                }
-            }
-
-        root.addView(backButton)
-
-        previewContainer.addView(root)
-    }
+    previewContainer.addView(root)
+}
 
     // Auto Pair
 
