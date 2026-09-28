@@ -3,15 +3,26 @@ package com.nida.kstudio
 import android.app.Activity
 import android.os.Bundle
 import android.graphics.Color
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.text.Editable
 import android.text.TextWatcher
 import android.text.style.ForegroundColorSpan
 import android.view.KeyEvent
+import android.view.Gravity
 import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.LinearLayout
+import android.widget.Spinner
+import android.widget.ArrayAdapter
 import android.widget.TextView
+import android.widget.Toast
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.regex.Pattern
 
 class MainActivity : Activity() {
@@ -92,7 +103,6 @@ class MainActivity : Activity() {
             }
 
             if (keyCode == KeyEvent.KEYCODE_DEL) {
-
                 return@setOnKeyListener handleDeletePair()
             }
 
@@ -136,7 +146,7 @@ class MainActivity : Activity() {
         // Run
 
         runButton.setOnClickListener {
-            updatePreview()
+            runKStudio()
         }
 
         // Search
@@ -185,6 +195,456 @@ class MainActivity : Activity() {
 
         lineNumbers.invalidate()
         updatePreview()
+    }
+
+    // Run
+
+    private fun runKStudio() {
+
+        /*
+         * 現在はError UIのテスト用。
+         *
+         * 将来的にはここを
+         *
+         * Kotlin / Gradle Build
+         *        ↓
+         * Error Parser
+         *
+         * に置き換える。
+         */
+
+        showError(
+            line = 10,
+            code = "K001",
+            fileName = "MainActivity.kt",
+            message = "Kotlinコードに問題があります。",
+            source = "KStudio"
+        )
+    }
+
+    // Error UI
+
+    private fun showError(
+        line: Int,
+        code: String,
+        fileName: String,
+        message: String,
+        source: String
+    ) {
+
+        previewContainer.removeAllViews()
+
+        val root =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.VERTICAL
+
+                setPadding(
+                    20,
+                    20,
+                    20,
+                    20
+                )
+            }
+
+        // Error Header
+
+        val header =
+            TextView(this).apply {
+
+                text = "🔴  Error"
+
+                textSize = 22f
+
+                setTextColor(
+                    Color.rgb(210, 40, 40)
+                )
+
+                setPadding(
+                    0,
+                    0,
+                    0,
+                    16
+                )
+            }
+
+        root.addView(header)
+
+        // Source Selector
+
+        val sourceLabel =
+            TextView(this).apply {
+
+                text = "エラーコード"
+
+                textSize = 13f
+            }
+
+        root.addView(sourceLabel)
+
+        val sourceSpinner =
+            Spinner(this)
+
+        val sources =
+            arrayOf(
+                "KStudio",
+                "Kotlin",
+                "Gradle",
+                "Android",
+                "Git"
+            )
+
+        val adapter =
+            ArrayAdapter(
+                this,
+                android.R.layout.simple_spinner_dropdown_item,
+                sources
+            )
+
+        sourceSpinner.adapter = adapter
+
+        val selectedIndex =
+            sources.indexOf(source)
+                .coerceAtLeast(0)
+
+        sourceSpinner.setSelection(
+            selectedIndex
+        )
+
+        root.addView(
+            sourceSpinner,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
+
+        // Error Row
+
+        val errorRow =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.HORIZONTAL
+
+                gravity =
+                    Gravity.CENTER_VERTICAL
+
+                setPadding(
+                    0,
+                    20,
+                    0,
+                    20
+                )
+            }
+
+        // Line
+
+        val lineView =
+            TextView(this).apply {
+
+                text = "${line}行目"
+
+                textSize = 16f
+
+                setTextColor(
+                    Color.rgb(40, 100, 210)
+                )
+
+                setPadding(
+                    0,
+                    10,
+                    16,
+                    10
+                )
+
+                setOnClickListener {
+                    lineInput.setText(
+                        line.toString()
+                    )
+
+                    jumpToLine()
+                }
+            }
+
+        errorRow.addView(lineView)
+
+        // Code
+
+        val codeView =
+            TextView(this).apply {
+
+                text = code
+
+                textSize = 16f
+
+                setTextColor(
+                    Color.rgb(180, 60, 60)
+                )
+
+                setPadding(
+                    16,
+                    10,
+                    16,
+                    10
+                )
+
+                setOnClickListener {
+
+                    showErrorDetail(
+                        line,
+                        code,
+                        fileName,
+                        message,
+                        source
+                    )
+                }
+            }
+
+        errorRow.addView(codeView)
+
+        // File
+
+        val fileView =
+            TextView(this).apply {
+
+                text = fileName
+
+                textSize = 14f
+
+                setPadding(
+                    16,
+                    10,
+                    16,
+                    10
+                )
+
+                setOnClickListener {
+
+                    lineInput.setText(
+                        line.toString()
+                    )
+
+                    jumpToLine()
+                }
+            }
+
+        errorRow.addView(fileView)
+
+        // Time
+
+        val time =
+            SimpleDateFormat(
+                "HH:mm",
+                Locale.getDefault()
+            ).format(Date())
+
+        val timeView =
+            TextView(this).apply {
+
+                text = time
+
+                textSize = 13f
+
+                setTextColor(
+                    Color.GRAY
+                )
+
+                setPadding(
+                    16,
+                    10,
+                    0,
+                    10
+                )
+            }
+
+        errorRow.addView(timeView)
+
+        root.addView(errorRow)
+
+        // Error Message
+
+        val messageView =
+            TextView(this).apply {
+
+                text = message
+
+                textSize = 15f
+
+                setPadding(
+                    0,
+                    8,
+                    0,
+                    20
+                )
+            }
+
+        root.addView(messageView)
+
+        // Copy Button
+
+        val copyButton =
+            Button(this).apply {
+
+                text = "エラーコードをコピー"
+
+                setOnClickListener {
+
+                    val clipboard =
+                        getSystemService(
+                            Context.CLIPBOARD_SERVICE
+                        ) as ClipboardManager
+
+                    val copyText =
+                        "$code\n" +
+                        "$fileName\n" +
+                        "${line}行目"
+
+                    clipboard.setPrimaryClip(
+                        ClipData.newPlainText(
+                            "KStudio Error",
+                            copyText
+                        )
+                    )
+
+                    Toast.makeText(
+                        this@MainActivity,
+                        "エラーコードをコピーしました",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+
+        root.addView(copyButton)
+
+        // Back / Preview
+
+        val previewButton =
+            Button(this).apply {
+
+                text = "Previewに戻る"
+
+                setOnClickListener {
+                    updatePreview()
+                }
+            }
+
+        root.addView(previewButton)
+
+        previewContainer.addView(root)
+    }
+
+    // Error Detail
+
+    private fun showErrorDetail(
+        line: Int,
+        code: String,
+        fileName: String,
+        message: String,
+        source: String
+    ) {
+
+        previewContainer.removeAllViews()
+
+        val root =
+            LinearLayout(this).apply {
+
+                orientation =
+                    LinearLayout.VERTICAL
+
+                setPadding(
+                    20,
+                    20,
+                    20,
+                    20
+                )
+            }
+
+        val title =
+            TextView(this).apply {
+
+                text = "$code"
+
+                textSize = 28f
+
+                setTextColor(
+                    Color.rgb(190, 50, 50)
+                )
+            }
+
+        root.addView(title)
+
+        val description =
+            TextView(this).apply {
+
+                text =
+                    "\n$message\n\n" +
+                    "ファイル: $fileName\n" +
+                    "場所: ${line}行目\n" +
+                    "種類: $source"
+
+                textSize = 16f
+
+                setPadding(
+                    0,
+                    20,
+                    0,
+                    20
+                )
+            }
+
+        root.addView(description)
+
+        val copyButton =
+            Button(this).apply {
+
+                text = "エラーコードをコピー"
+
+                setOnClickListener {
+
+                    val clipboard =
+                        getSystemService(
+                            Context.CLIPBOARD_SERVICE
+                        ) as ClipboardManager
+
+                    clipboard.setPrimaryClip(
+                        ClipData.newPlainText(
+                            "KStudio Error",
+                            code
+                        )
+                    )
+
+                    Toast.makeText(
+                        this@MainActivity,
+                        "$code をコピーしました",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+
+        root.addView(copyButton)
+
+        val backButton =
+            Button(this).apply {
+
+                text = "エラー一覧に戻る"
+
+                setOnClickListener {
+
+                    showError(
+                        line,
+                        code,
+                        fileName,
+                        message,
+                        source
+                    )
+                }
+            }
+
+        root.addView(backButton)
+
+        previewContainer.addView(root)
     }
 
     // Auto Pair
@@ -447,8 +907,6 @@ class MainActivity : Activity() {
 
         highlighting = true
 
-        // Remove old colors
-
         val oldSpans =
             editable.getSpans(
                 0,
@@ -468,16 +926,12 @@ class MainActivity : Activity() {
             return
         }
 
-        // Default
-
         editable.setSpan(
             ForegroundColorSpan(Color.BLACK),
             0,
             editable.length,
             0
         )
-
-        // Keywords
 
         val keywords = arrayOf(
             "fun",
@@ -529,8 +983,6 @@ class MainActivity : Activity() {
             }
         }
 
-        // Strings
-
         val stringPattern =
             Pattern.compile(
                 "\"[^\"]*\""
@@ -554,8 +1006,6 @@ class MainActivity : Activity() {
                 0
             )
         }
-
-        // Comments
 
         val commentPattern =
             Pattern.compile(
@@ -618,3 +1068,4 @@ class MainActivity : Activity() {
         )
     }
 }
+     
