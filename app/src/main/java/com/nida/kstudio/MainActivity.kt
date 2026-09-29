@@ -25,6 +25,7 @@ import android.widget.PopupWindow
 import android.widget.Spinner
 import android.widget.ArrayAdapter
 import android.widget.TextView
+import android.widget.ScrollView
 import android.widget.Toast
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -373,6 +374,17 @@ class MainActivity : Activity() {
                 false
             }
         }
+
+
+        codeEditor.addTextChangedListener(
+            object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                    showImagePathSuggestionsIfNeeded()
+                }
+                override fun afterTextChanged(s: Editable?) {}
+            }
+        )
 
         // Editor Actions
 
@@ -1066,166 +1078,133 @@ class MainActivity : Activity() {
 
     // Main Menu
 
-    private fun showMainMenu(
-        anchor: View
-    ) {
+    private fun showMainMenu(anchor: View) {
+        val root = FrameLayout(this)
+        root.setBackgroundColor(surfaceColor())
 
-        val menu =
-            LinearLayout(this).apply {
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dpToPx(18), dpToPx(28), dpToPx(18), dpToPx(18))
+            setBackgroundColor(surfaceColor())
+        }
 
-                orientation =
-                    LinearLayout.VERTICAL
+        val title = TextView(this).apply {
+            text = "KStudio"
+            textSize = 24f
+            setTextColor(primaryTextColor())
+            setPadding(0, 0, 0, dpToPx(20))
+        }
+        panel.addView(title)
 
-                setPadding(
-                    dpToPx(12),
-                    dpToPx(12),
-                    dpToPx(12),
-                    dpToPx(12)
-                )
-
-                setBackgroundColor(
-                    surfaceColor()
-                )
+        fun addItem(label: String, action: () -> Unit, icon: Int? = null) {
+            val button = Button(this).apply {
+                text = label
+                textSize = 16f
+                setAllCaps(false)
+                setTextColor(primaryTextColor())
+                if (icon != null) setSimpleIcon(this, icon)
+                gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                setOnClickListener { action() }
             }
+            panel.addView(button, LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dpToPx(54)
+            ))
+        }
 
-        val popup =
-            PopupWindow(
-                menu,
-                dpToPx(320),
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                true
-            )
+        addItem("Home", { showHomeTab() }, R.drawable.ic_project_simple)
+        addItem("フォルダ", { openFolderPicker() }, R.drawable.ic_folder_simple)
+        addItem("履歴", { showHistory() })
+        addItem("プロジェクト一覧", { showProjects() })
+        addItem("ファイル管理", { showFileManager() })
+        addItem("設定", { showSettingsDialog() })
+        addItem("アカウント", { showAccountDialog() })
 
-        val menuTextColor = primaryTextColor()
+        val close = Button(this).apply {
+            text = "閉じる"
+            setAllCaps(false)
+            setTextColor(primaryTextColor())
+            setOnClickListener { drawer.dismiss() }
+        }
+        panel.addView(close, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            dpToPx(54)
+        ).apply {
+            topMargin = dpToPx(12)
+        })
 
-    // Home
+        root.addView(panel, FrameLayout.LayoutParams(
+            dpToPx(340),
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            Gravity.START
+        ))
 
-        val homeButton =
-            Button(this).apply {
+        val scrim = View(this).apply {
+            setBackgroundColor(Color.argb(80, 0, 0, 0))
+            setOnClickListener { drawer.dismiss() }
+        }
+        root.addView(scrim, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        ))
+        root.removeView(panel)
+        root.addView(panel, FrameLayout.LayoutParams(
+            dpToPx(340),
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            Gravity.START
+        ))
 
-                text = "Home"
-                setTextColor(menuTextColor)
+        val drawer = PopupWindow(
+            root,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            true
+        ).apply {
+            isOutsideTouchable = true
+            elevation = dpToPx(16).toFloat()
+            setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        }
 
-                setOnClickListener {
+        close.setOnClickListener { drawer.dismiss() }
+        addDrawerClickDismiss(panel, drawer)
 
-                    showHomeTab()
+        drawer.showAtLocation(topMenuBar, Gravity.START or Gravity.TOP, 0, 0)
+    }
 
-                    popup.dismiss()
+    private fun addDrawerClickDismiss(panel: ViewGroup, drawer: PopupWindow) {
+        for (i in 0 until panel.childCount) {
+            val child = panel.getChildAt(i)
+            if (child is Button && child.text != "閉じる") {
+                child.setOnClickListener {
+                    when (child.text.toString()) {
+                        "Home" -> showHomeTab()
+                        "フォルダ" -> openFolderPicker()
+                        "履歴" -> showHistory()
+                        "プロジェクト一覧" -> showProjects()
+                        "ファイル管理" -> showFileManager()
+                        "設定" -> showSettingsDialog()
+                        "アカウント" -> showAccountDialog()
+                    }
+                    drawer.dismiss()
                 }
             }
+        }
+    }
 
-        menu.addView(
-            homeButton,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                52
-            )
-        )
+    private fun showSettingsDialog() {
+        android.app.AlertDialog.Builder(this)
+            .setTitle("設定")
+            .setMessage("KStudioの設定画面です。")
+            .setPositiveButton("閉じる", null)
+            .show()
+    }
 
-        // Folder
-
-        val folderButton =
-            Button(this).apply {
-
-                text = "フォルダ"
-                setTextColor(menuTextColor)
-
-                setOnClickListener {
-
-                    openFolderPicker()
-
-                    popup.dismiss()
-                }
-            }
-
-        menu.addView(
-            folderButton,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                52
-            )
-        )
-
-        // History
-
-        val historyButton =
-            Button(this).apply {
-
-                text = "履歴"
-                setTextColor(menuTextColor)
-
-                setOnClickListener {
-
-                    showHistory()
-
-                    popup.dismiss()
-                }
-            }
-
-        menu.addView(
-            historyButton,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                52
-            )
-        )
-
-        // Projects
-
-        val projectButton =
-            Button(this).apply {
-
-                text = "プロジェクト一覧"
-                setTextColor(menuTextColor)
-
-                setOnClickListener {
-
-                    showProjects()
-
-                    popup.dismiss()
-                }
-            }
-
-        menu.addView(
-            projectButton,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                52
-            )
-        )
-
-        // Files
-
-        val fileButton =
-            Button(this).apply {
-
-                text = "ファイル管理"
-                setTextColor(menuTextColor)
-
-                setOnClickListener {
-
-                    showFileManager()
-
-                    popup.dismiss()
-                }
-            }
-
-        menu.addView(
-            fileButton,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                52
-            )
-        )
-
-        popup.elevation = dpToPx(12).toFloat()
-
-        popup.showAtLocation(
-            topMenuBar,
-            Gravity.TOP or Gravity.START,
-            0,
-            topMenuBar.height
-        )
+    private fun showAccountDialog() {
+        android.app.AlertDialog.Builder(this)
+            .setTitle("アカウント")
+            .setMessage("アカウント機能は準備中です。")
+            .setPositiveButton("閉じる", null)
+            .show()
     }
 
     // Project Setup
@@ -1445,57 +1424,158 @@ class MainActivity : Activity() {
         resultCode: Int,
         data: Intent?
     ) {
+        super.onActivityResult(requestCode, resultCode, data)
 
-        super.onActivityResult(
-            requestCode,
-            resultCode,
-            data
+        if (resultCode != RESULT_OK || data == null) return
+
+        when (requestCode) {
+            1001 -> handleProjectFolderResult(data)
+            REQUEST_UPLOAD_FILE -> handleUploadFiles(data)
+            REQUEST_UPLOAD_FOLDER -> handleUploadFolder(data)
+        }
+    }
+
+    private fun handleProjectFolderResult(data: Intent) {
+        val uri = data.data ?: return
+        try {
+            contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+        } catch (_: Exception) {}
+
+        folderRootUri = uri
+        currentFolderUri = DocumentsContract.buildDocumentUriUsingTree(
+            uri,
+            DocumentsContract.getTreeDocumentId(uri)
         )
+        currentFolderStack.clear()
+        currentFileUri = null
+        currentFileName = "新規ファイル"
+        isDirty = false
+        undoStack.clear()
+        redoStack.clear()
 
-        if (
-            requestCode == 1001 &&
-            resultCode == RESULT_OK
-        ) {
+        historyApplying = true
+        codeEditor.setText("")
+        historyApplying = false
+        highlightCode()
 
-            val uri =
-                data?.data
-                    ?: return
+        saveRecentFolder(uri)
+        updateEditorHeader()
+        updateHistoryButtons()
+        askProjectName()
+    }
 
-            try {
+    private fun openUploadFilePicker() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "*/*"
+            putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+        }
+        startActivityForResult(intent, REQUEST_UPLOAD_FILE)
+    }
 
-                contentResolver
-                    .takePersistableUriPermission(
-                        uri,
-                        Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                    )
+    private fun openUploadFolderPicker() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+        }
+        startActivityForResult(intent, REQUEST_UPLOAD_FOLDER)
+    }
 
-            } catch (_: Exception) {
+    private fun handleUploadFiles(data: Intent) {
+        val destination = currentFolderUri ?: folderRootUri ?: run {
+            showNoFolderToast()
+            return
+        }
+
+        try {
+            val uris = ArrayList<Uri>()
+            data.clipData?.let { clip ->
+                for (i in 0 until clip.itemCount) uris.add(clip.getItemAt(i).uri)
+            } ?: data.data?.let { uris.add(it) }
+
+            var count = 0
+            for (uri in uris) {
+                copyExternalFile(uri, destination)
+                count++
             }
 
-            folderRootUri = uri
-            currentFolderUri =
-                DocumentsContract.buildDocumentUriUsingTree(
-                    uri,
-                    DocumentsContract.getTreeDocumentId(uri)
-                )
-            currentFolderStack.clear()
-            currentFileUri = null
-            currentFileName = "新規ファイル"
-            isDirty = false
-            undoStack.clear()
-            redoStack.clear()
+            renderHomeFiles()
+            if (fileTab.visibility == View.VISIBLE) renderFileBrowser()
+            Toast.makeText(this, count.toString() + " 個のファイルをアップロードしました", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "アップロードに失敗しました: " + (e.message ?: "unknown"), Toast.LENGTH_LONG).show()
+        }
+    }
 
-            historyApplying = true
-            codeEditor.setText("")
-            historyApplying = false
-            highlightCode()
+    private fun handleUploadFolder(data: Intent) {
+        val destination = currentFolderUri ?: folderRootUri ?: run {
+            showNoFolderToast()
+            return
+        }
+        val source = data.data ?: return
 
-            saveRecentFolder(uri)
-            updateEditorHeader()
-            updateHistoryButtons()
+        try {
+            val name = getDocumentName(source).ifBlank { "UploadedFolder" }
+            if (findChildByName(destination, name) != null) {
+                throw IOException("同名のファイルまたはフォルダがあります")
+            }
+            val target = DocumentsContract.createDocument(
+                contentResolver,
+                destination,
+                DocumentsContract.Document.MIME_TYPE_DIR,
+                name
+            ) ?: throw IOException("フォルダ作成に失敗しました")
 
-            askProjectName()
+            copyExternalFolder(source, target)
+            renderHomeFiles()
+            if (fileTab.visibility == View.VISIBLE) renderFileBrowser()
+            Toast.makeText(this, "フォルダをアップロードしました", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "フォルダのアップロードに失敗しました: " + (e.message ?: "unknown"), Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun copyExternalFile(source: Uri, destination: Uri) {
+        val name = getDocumentName(source).ifBlank { "uploaded_file" }
+        if (findChildByName(destination, name) != null) {
+            throw IOException("同名のファイルがあります: " + name)
+        }
+
+        val target = DocumentsContract.createDocument(
+            contentResolver,
+            destination,
+            contentResolver.getType(source) ?: "application/octet-stream",
+            name
+        ) ?: throw IOException("ファイル作成に失敗しました")
+
+        try {
+            contentResolver.openInputStream(source).use { input ->
+                contentResolver.openOutputStream(target).use { output ->
+                    if (input == null || output == null) throw IOException("ファイルを開けません")
+                    input.copyTo(output)
+                }
+            }
+        } catch (e: Exception) {
+            try { DocumentsContract.deleteDocument(contentResolver, target) } catch (_: Exception) {}
+            throw e
+        }
+    }
+
+    private fun copyExternalFolder(source: Uri, destination: Uri) {
+        for (entry in queryFolder(source)) {
+            if (entry.isDirectory) {
+                val target = DocumentsContract.createDocument(
+                    contentResolver,
+                    destination,
+                    DocumentsContract.Document.MIME_TYPE_DIR,
+                    entry.name
+                ) ?: throw IOException("フォルダ作成に失敗しました: " + entry.name)
+                copyExternalFolder(entry.uri, target)
+            } else {
+                copyExternalFile(entry.uri, destination)
+            }
         }
     }
 
