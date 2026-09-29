@@ -10,6 +10,7 @@
     <!-- Top Menu -->
 
     <LinearLayout
+        android:id="@+id/topMenuBar"
         android:layout_width="match_parent"
         android:layout_height="52dp"
         android:gravity="center_vertical"
@@ -41,6 +42,7 @@
     <!-- Project -->
 
     <LinearLayout
+        android:id="@+id/projectBar"
         android:layout_width="match_parent"
         android:layout_height="44dp"
         android:gravity="center_vertical"
@@ -62,6 +64,7 @@
     <!-- Search -->
 
     <LinearLayout
+        android:id="@+id/searchBar"
         android:layout_width="match_parent"
         android:layout_height="52dp"
         android:padding="6dp"
@@ -113,6 +116,7 @@
     <!-- Editor -->
 
     <LinearLayout
+        android:id="@+id/editorContainer"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
@@ -147,6 +151,7 @@
     <!-- Bottom Header -->
 
     <LinearLayout
+        android:id="@+id/bottomHeader"
         android:layout_width="match_parent"
         android:layout_height="52dp"
         android:gravity="center_vertical"
@@ -174,6 +179,7 @@
     <!-- Preview Header -->
 
     <LinearLayout
+        android:id="@+id/previewHeader"
         android:layout_width="match_parent"
         android:layout_height="48dp"
         android:gravity="center_vertical"
