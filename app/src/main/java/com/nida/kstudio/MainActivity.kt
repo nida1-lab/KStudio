@@ -782,6 +782,49 @@ class MainActivity : Activity() {
         )
     }
 
+    private fun showFileSearchDialog() {
+        val input = EditText(this)
+        input.hint = "ファイル名"
+        input.setSingleLine(true)
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Search file")
+            .setView(input)
+            .setNegativeButton("キャンセル", null)
+            .setPositiveButton("検索") { _, _ ->
+                val keyword = input.text.toString().trim()
+                if (keyword.isEmpty()) return@setPositiveButton
+
+                val root = folderRootUri ?: return@setPositiveButton
+                val results = queryFolder(root).filter {
+                    !it.isDirectory &&
+                    it.name.contains(keyword, ignoreCase = true)
+                }
+
+                if (results.isEmpty()) {
+                    Toast.makeText(
+                        this,
+                        "ファイルが見つかりません",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    return@setPositiveButton
+                }
+
+                val labels = results.map {
+                    "📄 " + it.name
+                }.toTypedArray()
+
+                android.app.AlertDialog.Builder(this)
+                    .setTitle("検索結果")
+                    .setItems(labels) { _, which ->
+                        val entry = results[which]
+                        openManagedFile(entry.uri, entry.name)
+                    }
+                    .show()
+            }
+            .show()
+    }
+
     // Main Menu
 
     private fun showMainMenu(
