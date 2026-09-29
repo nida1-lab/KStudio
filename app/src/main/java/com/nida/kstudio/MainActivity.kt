@@ -991,6 +991,17 @@ class MainActivity : Activity() {
         )
     }
 
+    private fun saveEditCommit() {
+        val descriptionText = saveCommitMessageInput.text.toString().trim()
+        val description = if (descriptionText.isEmpty()) "編集を保存" else descriptionText
+
+        saveCurrentFile {
+            saveEditHistory(currentFileName, description)
+            saveCommitPanel.visibility = View.GONE
+            showEditorScreen()
+        }
+    }
+
     // Main Menu
 
     private fun showMainMenu(
