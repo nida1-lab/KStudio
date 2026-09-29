@@ -872,255 +872,246 @@ class MainActivity : Activity() {
         }
     }
 
-    // File Manager
+    // File Manager Tab
 
     private fun showFileManager() {
 
-        val rootUri = folderRootUri
+        if (fullscreen) {
+            togglePreviewFullscreen()
+        }
 
-        if (rootUri == null || currentFolderUri == null) {
-            Toast.makeText(
-                this,
-                "先にフォルダを選択してください",
-                Toast.LENGTH_SHORT
-            ).show()
+        if (folderRootUri == null || currentFolderUri == null) {
+            showNoFolderToast()
             return
         }
 
-        val root =
-            LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(dpToPx(16), dpToPx(16), dpToPx(16), dpToPx(16))
-                setBackgroundColor(surfaceColor())
-            }
+        projectTab.visibility = View.GONE
+        fileTab.visibility = View.VISIBLE
+        historyTab.visibility = View.GONE
+        editorContainer.visibility = View.GONE
+        previewArea.visibility = View.GONE
+        bottomHeader.visibility = View.GONE
+        searchBar.visibility = View.GONE
+        projectBar.visibility = View.GONE
 
-        val title =
-            TextView(this).apply {
-                text = "ファイル管理"
-                textSize = 22f
-                setTextColor(primaryTextColor())
-            }
+        showFileBrowserTab()
+    }
 
-        val pathView =
-            TextView(this).apply {
-                textSize = 13f
-                setTextColor(secondaryTextColor())
-                setPadding(0, dpToPx(6), 0, dpToPx(12))
-            }
+    private fun showFileBrowserTab() {
 
-        val list =
-            LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-            }
+        if (folderRootUri == null || currentFolderUri == null) {
+            showNoFolderToast()
+            return
+        }
 
-        val scroll =
-            android.widget.ScrollView(this).apply {
-                addView(
-                    list,
-                    ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
+        fileTab.visibility = View.VISIBLE
+        projectTab.visibility = View.GONE
+        historyTab.visibility = View.GONE
+        editorContainer.visibility = View.GONE
+        previewArea.visibility = View.GONE
+        bottomHeader.visibility = View.GONE
+        searchBar.visibility = View.GONE
+        projectBar.visibility = View.GONE
+        fileBrowserPanel.visibility = View.VISIBLE
+        fileCreatePanel.visibility = View.GONE
+
+        renderFileBrowser()
+    }
+
+    private fun showCreateFileTab() {
+
+        if (folderRootUri == null || currentFolderUri == null) {
+            showNoFolderToast()
+            return
+        }
+
+        projectTab.visibility = View.GONE
+        fileTab.visibility = View.VISIBLE
+        historyTab.visibility = View.GONE
+        editorContainer.visibility = View.GONE
+        previewArea.visibility = View.GONE
+        bottomHeader.visibility = View.GONE
+        searchBar.visibility = View.GONE
+        projectBar.visibility = View.GONE
+
+        fileBrowserPanel.visibility = View.GONE
+        fileCreatePanel.visibility = View.VISIBLE
+
+        fileCreateLocation.text =
+            "作成先: " +
+                getCurrentFolderDisplayName()
+
+        fileCreatePathInput.setText("Main.kt")
+        fileCreatePathInput.selectAll()
+
+        fileCreateContentInput.setText("")
+        fileCreatePathInput.requestFocus()
+    }
+
+    private fun renderFileBrowser() {
+
+        val current =
+            currentFolderUri
+                ?: return
+
+        filePathView.text =
+            "📁 " +
+                getCurrentFolderDisplayName()
+
+        fileList.removeAllViews()
+
+        val entries =
+            queryFolder(current)
+
+        if (entries.isEmpty()) {
+
+            val empty =
+                TextView(this).apply {
+                    text =
+                        "このフォルダは空です。\n\n" +
+                        "「＋ ファイル」からGitHub風に新規ファイルを作成できます。"
+                    textSize = 15f
+                    setTextColor(
+                        secondaryTextColor()
                     )
-                )
-            }
-
-        val actions =
-            LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-            }
-
-        val newFile =
-            Button(this).apply {
-                text = "新規"
-                setOnClickListener {
-                    askCreateFile(currentFolderUri!!)
-                }
-            }
-
-        val newFolder =
-            Button(this).apply {
-                text = "フォルダ"
-                setOnClickListener {
-                    askCreateFolder(currentFolderUri!!)
-                }
-            }
-
-        val upButton =
-            Button(this).apply {
-                text = "上へ"
-            }
-
-        val closeButton =
-            Button(this).apply {
-                text = "閉じる"
-            }
-
-        actions.addView(
-            newFile,
-            LinearLayout.LayoutParams(0, dpToPx(50), 1f)
-        )
-        actions.addView(
-            newFolder,
-            LinearLayout.LayoutParams(0, dpToPx(50), 1f)
-        )
-        actions.addView(
-            upButton,
-            LinearLayout.LayoutParams(0, dpToPx(50), 1f)
-        )
-        actions.addView(
-            closeButton,
-            LinearLayout.LayoutParams(0, dpToPx(50), 1f)
-        )
-
-        root.addView(title)
-        root.addView(pathView)
-        root.addView(
-            scroll,
-            LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dpToPx(300)
-            )
-        )
-        root.addView(actions)
-
-        val dialog =
-            android.app.AlertDialog.Builder(this)
-                .setView(root)
-                .create()
-
-        fun render() {
-
-            val current = currentFolderUri ?: return
-
-            pathView.text =
-                "📁 " +
-                getDocumentName(current).ifBlank {
-                    "選択したフォルダ"
+                    setPadding(
+                        dpToPx(8),
+                        dpToPx(20),
+                        dpToPx(8),
+                        dpToPx(20)
+                    )
                 }
 
-            list.removeAllViews()
+            fileList.addView(empty)
+        }
 
-            val entries = queryFolder(current)
+        for (entry in entries) {
 
-            if (entries.isEmpty()) {
+            val button =
+                Button(this).apply {
 
-                val empty =
-                    TextView(this).apply {
-                        text = "このフォルダは空です"
-                        textSize = 15f
-                        setTextColor(secondaryTextColor())
-                        setPadding(dpToPx(8), dpToPx(20), dpToPx(8), dpToPx(20))
-                    }
+                    text =
+                        if (entry.isDirectory) {
+                            "📁  " + entry.name
+                        } else {
+                            "📄  " + entry.name
+                        }
 
-                list.addView(empty)
-            }
+                    gravity =
+                        Gravity.START or
+                        Gravity.CENTER_VERTICAL
 
-            for (entry in entries) {
+                    setAllCaps(false)
 
-                val button =
-                    Button(this).apply {
+                    setOnClickListener {
 
-                        text =
-                            if (entry.isDirectory) {
-                                "📁  " + entry.name
-                            } else {
-                                "📄  " + entry.name
-                            }
+                        if (entry.isDirectory) {
 
-                        gravity =
-                            Gravity.START or
-                            Gravity.CENTER_VERTICAL
+                            currentFolderStack.add(current)
+                            currentFolderUri =
+                                entry.uri
 
-                        setAllCaps(false)
+                            renderFileBrowser()
 
-                        setOnClickListener {
+                        } else {
 
-                            if (entry.isDirectory) {
-
-                                currentFolderStack.add(current)
-                                currentFolderUri =
-                                    entry.uri
-
-                                render()
-
-                            } else {
-
-                                if (
-                                    !isSupportedTextFile(
-                                        entry.name,
-                                        entry.mimeType
-                                    )
-                                ) {
-
-                                    Toast.makeText(
-                                        this@MainActivity,
-                                        "テキストファイルではありません",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-
-                                    return@setOnClickListener
-                                }
-
-                                openManagedFile(
-                                    entry.uri,
-                                    entry.name
+                            if (
+                                !isSupportedTextFile(
+                                    entry.name,
+                                    entry.mimeType
                                 )
-
-                                dialog.dismiss()
-                            }
-                        }
-
-                        setOnLongClickListener {
-
-                            showFileActions(
-                                entry
                             ) {
-                                render()
+                                Toast.makeText(
+                                    this@MainActivity,
+                                    "このファイルはKStudioで編集できません",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+
+                                return@setOnClickListener
                             }
 
-                            true
+                            openManagedFile(
+                                entry.uri,
+                                entry.name
+                            )
                         }
                     }
 
-                list.addView(
-                    button,
-                    LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        dpToPx(54)
-                    )
-                )
-            }
+                    setOnLongClickListener {
+
+                        showFileActions(
+                            entry
+                        ) {
+                            renderFileBrowser()
+                        }
+
+                        true
+                    }
+                }
+
+            fileList.addView(
+                button,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    dpToPx(54)
+                ).apply {
+                    bottomMargin = dpToPx(3)
+                }
+            )
+        }
+    }
+
+    private fun navigateFileManagerUp() {
+
+        if (currentFolderStack.isEmpty()) {
+
+            Toast.makeText(
+                this,
+                "これ以上上には移動できません",
+                Toast.LENGTH_SHORT
+            ).show()
+
+            return
         }
 
-        upButton.setOnClickListener {
+        currentFolderUri =
+            currentFolderStack.removeAt(
+                currentFolderStack.lastIndex
+            )
 
-            if (currentFolderStack.isNotEmpty()) {
+        renderFileBrowser()
+    }
 
-                currentFolderUri =
-                    currentFolderStack
-                        .removeAt(
-                            currentFolderStack.lastIndex
-                        )
+    private fun getCurrentFolderDisplayName(): String {
 
-                render()
+        val rootName =
+            folderRootUri?.let {
+                getFolderName(it)
+            }?.ifBlank {
+                "プロジェクト"
+            } ?: "プロジェクト"
 
-            } else {
+        val currentName =
+            currentFolderUri?.let {
+                getDocumentName(it)
+            }?.ifBlank {
+                rootName
+            } ?: rootName
 
-                Toast.makeText(
-                    this,
-                    "これ以上上には移動できません",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
+        return if (currentName == rootName) {
+            rootName
+        } else {
+            rootName + " / " + currentName
         }
+    }
 
-        closeButton.setOnClickListener {
-            dialog.dismiss()
-        }
+    private fun showNoFolderToast() {
 
-        render()
-        dialog.show()
+        Toast.makeText(
+            this,
+            "先にフォルダを選択してください",
+            Toast.LENGTH_SHORT
+        ).show()
     }
 
     private fun queryFolder(
@@ -1274,6 +1265,7 @@ class MainActivity : Activity() {
                 updateHistoryButtons()
                 lineNumbers.invalidate()
                 highlightCode()
+                showHomeTab()
 
                 Toast.makeText(
                     this,
@@ -1355,46 +1347,13 @@ class MainActivity : Activity() {
         folderUri: Uri
     ) {
 
-        val input =
-            EditText(this).apply {
-                hint = "例: MainActivity.kt"
-                setSingleLine(true)
-                setText("Main.kt")
-                selectAll()
-            }
-
-        android.app.AlertDialog.Builder(this)
-            .setTitle("新しいファイル")
-            .setView(input)
-            .setNegativeButton(
-                "キャンセル",
-                null
-            )
-            .setPositiveButton(
-                "作成"
-            ) { _, _ ->
-
-                val name =
-                    input.text
-                        .toString()
-                        .trim()
-
-                if (name.isEmpty()) {
-                    return@setPositiveButton
-                }
-
-                confirmUnsavedChanges {
-                    createManagedFile(
-                        folderUri,
-                        name
-                    )
-                }
-            }
-            .show()
+        currentFolderUri = folderUri
+        showCreateFileTab()
     }
 
     private fun askCreateFolder(
-        folderUri: Uri
+        folderUri: Uri,
+        onCreated: (() -> Unit)? = null
     ) {
 
         val input =
@@ -1421,11 +1380,36 @@ class MainActivity : Activity() {
                         .toString()
                         .trim()
 
-                if (name.isEmpty()) {
+                val validation =
+                    validatePathSegment(
+                        name,
+                        "フォルダ名"
+                    )
+
+                if (validation != null) {
+                    Toast.makeText(
+                        this,
+                        validation,
+                        Toast.LENGTH_SHORT
+                    ).show()
                     return@setPositiveButton
                 }
 
                 try {
+
+                    if (
+                        findChildByName(
+                            folderUri,
+                            name
+                        ) != null
+                    ) {
+                        Toast.makeText(
+                            this,
+                            "同名のファイルまたはフォルダがあります",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        return@setPositiveButton
+                    }
 
                     DocumentsContract.createDocument(
                         contentResolver,
@@ -1433,23 +1417,308 @@ class MainActivity : Activity() {
                         DocumentsContract.Document.MIME_TYPE_DIR,
                         name
                     )
+                        ?: throw IllegalStateException(
+                            "フォルダ作成に失敗しました"
+                        )
 
                     Toast.makeText(
                         this,
-                        "フォルダを作成しました",
+                        "フォルダを作成しました: " + name,
                         Toast.LENGTH_SHORT
                     ).show()
 
-                } catch (_: Exception) {
+                    onCreated?.invoke()
+
+                } catch (e: Exception) {
 
                     Toast.makeText(
                         this,
-                        "フォルダ作成に失敗しました",
-                        Toast.LENGTH_SHORT
+                        "フォルダ作成に失敗しました: " +
+                            (e.message ?: "unknown"),
+                        Toast.LENGTH_LONG
                     ).show()
                 }
             }
             .show()
+    }
+
+    // GitHub-style Create New File
+
+    private fun createGitHubStyleFile() {
+
+        val baseFolder =
+            currentFolderUri
+                ?: run {
+                    showNoFolderToast()
+                    return
+                }
+
+        val rawPath =
+            fileCreatePathInput.text
+                .toString()
+                .trim()
+
+        val content =
+            fileCreateContentInput.text
+                .toString()
+
+        if (rawPath.isEmpty()) {
+            Toast.makeText(
+                this,
+                "ファイル名を入力してください",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
+        if (content.length > 2_000_000) {
+            Toast.makeText(
+                this,
+                "ファイル内容が大きすぎます（2MB以下）",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
+        if (
+            rawPath.contains('\\') ||
+            rawPath.startsWith("/")
+        ) {
+            Toast.makeText(
+                this,
+                "ファイルパスが正しくありません",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
+        val segments =
+            rawPath
+                .split("/")
+                .map { it.trim() }
+
+        if (
+            segments.isEmpty() ||
+            segments.any { it.isEmpty() }
+        ) {
+            Toast.makeText(
+                this,
+                "ファイルパスに空の階層があります",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
+        for (segment in segments) {
+
+            val validation =
+                validatePathSegment(
+                    segment,
+                    "ファイル名"
+                )
+
+            if (validation != null) {
+                Toast.makeText(
+                    this,
+                    validation,
+                    Toast.LENGTH_SHORT
+                ).show()
+                return
+            }
+        }
+
+        if (segments.size > 20) {
+            Toast.makeText(
+                this,
+                "フォルダ階層が深すぎます",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
+        confirmUnsavedChanges {
+
+            try {
+
+                var targetFolder =
+                    baseFolder
+
+                for (
+                    directoryName in
+                    segments.dropLast(1)
+                ) {
+
+                    val existing =
+                        findChildByName(
+                            targetFolder,
+                            directoryName
+                        )
+
+                    if (existing != null) {
+
+                        if (!existing.isDirectory) {
+                            throw IllegalStateException(
+                                "'$directoryName' はファイルです"
+                            )
+                        }
+
+                        targetFolder =
+                            existing.uri
+
+                    } else {
+
+                        targetFolder =
+                            DocumentsContract.createDocument(
+                                contentResolver,
+                                targetFolder,
+                                DocumentsContract.Document.MIME_TYPE_DIR,
+                                directoryName
+                            )
+                                ?: throw IllegalStateException(
+                                    "フォルダ '$directoryName' を作成できませんでした"
+                                )
+                    }
+                }
+
+                val fileName =
+                    segments.last()
+
+                if (
+                    findChildByName(
+                        targetFolder,
+                        fileName
+                    ) != null
+                ) {
+                    throw IllegalStateException(
+                        "同名のファイルまたはフォルダがあります"
+                    )
+                }
+
+                val fileUri =
+                    DocumentsContract.createDocument(
+                        contentResolver,
+                        targetFolder,
+                        mimeTypeForFile(fileName),
+                        fileName
+                    )
+                        ?: throw IllegalStateException(
+                            "ファイル作成に失敗しました"
+                        )
+
+                try {
+
+                    contentResolver
+                        .openOutputStream(
+                            fileUri,
+                            "wt"
+                        )
+                        ?.use { stream ->
+                            stream.write(
+                                content.toByteArray(
+                                    Charsets.UTF_8
+                                )
+                            )
+                        }
+                        ?: throw IllegalStateException(
+                            "作成したファイルを開けませんでした"
+                        )
+
+                } catch (writeError: Exception) {
+
+                    try {
+                        DocumentsContract.deleteDocument(
+                            contentResolver,
+                            fileUri
+                        )
+                    } catch (_: Exception) {
+                    }
+
+                    throw writeError
+                }
+
+                historyApplying = true
+                codeEditor.setText(content)
+                historyApplying = false
+
+                undoStack.clear()
+                redoStack.clear()
+
+                currentFileUri = fileUri
+                currentFileName = fileName
+                isDirty = false
+
+                updateEditorHeader()
+                updateHistoryButtons()
+                highlightCode()
+                lineNumbers.invalidate()
+
+                fileCreatePathInput.setText("")
+                fileCreateContentInput.setText("")
+
+                showHomeTab()
+
+                Toast.makeText(
+                    this,
+                    "ファイルを作成しました: " +
+                        rawPath,
+                    Toast.LENGTH_LONG
+                ).show()
+
+            } catch (e: Exception) {
+
+                historyApplying = false
+
+                Toast.makeText(
+                    this,
+                    "ファイル作成に失敗しました: " +
+                        (e.message ?: "unknown"),
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
+    private fun validatePathSegment(
+        value: String,
+        label: String
+    ): String? {
+
+        if (value.isEmpty()) {
+            return label + "を入力してください"
+        }
+
+        if (
+            value == "." ||
+            value == ".."
+        ) {
+            return label + "に . や .. は使えません"
+        }
+
+        if (
+            value.contains('/') ||
+            value.contains('\\') ||
+            value.indexOf(' ') >= 0
+        ) {
+            return label + "に使用できない文字があります"
+        }
+
+        if (value.length > 255) {
+            return label + "が長すぎます"
+        }
+
+        return null
+    }
+
+    private fun findChildByName(
+        folderUri: Uri,
+        targetName: String
+    ): ManagedEntry? {
+
+        return queryFolder(
+            folderUri
+        ).firstOrNull {
+            it.name == targetName
+        }
     }
 
     private fun createManagedFile(
