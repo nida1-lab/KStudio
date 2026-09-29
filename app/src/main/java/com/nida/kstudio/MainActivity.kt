@@ -675,6 +675,64 @@ class MainActivity : Activity() {
     }
 
 
+    private fun setupHomeAndSaveUi() {
+
+        val homeLayout = homeTab as LinearLayout
+
+        homeProjectTitle.layoutParams =
+            LinearLayout.LayoutParams(
+                0,
+                dpToPx(56),
+                1f
+            )
+
+        homeMoreButton = Button(this).apply {
+            text = "..."
+            textSize = 20f
+            minWidth = 0
+            setOnClickListener {
+                showHomeActionsMenu(this)
+            }
+        }
+
+        homeLayout.addView(
+            homeMoreButton,
+            LinearLayout.LayoutParams(
+                dpToPx(48),
+                dpToPx(44)
+            )
+        )
+
+        saveCommitOpenButton = Button(this).apply {
+            text = "編集を保存"
+            textSize = 12f
+            setTextColor(Color.WHITE)
+            setBackgroundColor(Color.rgb(45, 164, 78))
+            minWidth = 0
+            setOnClickListener {
+                showSaveCommitPanel()
+            }
+        }
+
+        val projectLayout = projectBar as LinearLayout
+        val title = findViewById<TextView>(R.id.projectName)
+
+        title.layoutParams =
+            LinearLayout.LayoutParams(
+                0,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                1f
+            )
+
+        projectLayout.addView(
+            saveCommitOpenButton,
+            LinearLayout.LayoutParams(
+                dpToPx(104),
+                dpToPx(42)
+            )
+        )
+    }
+
     // Main Menu
 
     private fun showMainMenu(
