@@ -799,7 +799,10 @@ class MainActivity : Activity() {
         setSimpleIcon(newFile, R.drawable.ic_file_simple)
         newFile.setOnClickListener {
             folderRootUri?.let {
-                currentFolderUri = it
+                currentFolderUri = DocumentsContract.buildDocumentUriUsingTree(
+                    it,
+                    DocumentsContract.getTreeDocumentId(it)
+                )
                 showCreateFileTab()
             } ?: showNoFolderToast()
             popup.dismiss()
@@ -812,7 +815,11 @@ class MainActivity : Activity() {
         setSimpleIcon(newFolder, R.drawable.ic_folder_simple)
         newFolder.setOnClickListener {
             folderRootUri?.let {
-                askCreateFolder(it) { showHomeTab() }
+                val rootDocument = DocumentsContract.buildDocumentUriUsingTree(
+                    it,
+                    DocumentsContract.getTreeDocumentId(it)
+                )
+                askCreateFolder(rootDocument) { showHomeTab() }
             } ?: showNoFolderToast()
             popup.dismiss()
         }
@@ -1124,7 +1131,6 @@ class MainActivity : Activity() {
             text = "閉じる"
             setAllCaps(false)
             setTextColor(primaryTextColor())
-            setOnClickListener { drawer.dismiss() }
         }
         panel.addView(close, LinearLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -1563,8 +1569,12 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun copyExternalFolder(source: Uri, destination: Uri) {
-        for (entry in queryFolder(source)) {
+    private fun copyExternalFolder(
+        source: Uri,
+        destination: Uri,
+        treeUri: Uri
+    ) {
+        for (entry in queryFolderFromTree(source, treeUri)) {
             if (entry.isDirectory) {
                 val target = DocumentsContract.createDocument(
                     contentResolver,
@@ -1572,7 +1582,7 @@ class MainActivity : Activity() {
                     DocumentsContract.Document.MIME_TYPE_DIR,
                     entry.name
                 ) ?: throw IOException("フォルダ作成に失敗しました: " + entry.name)
-                copyExternalFolder(entry.uri, target)
+                copyExternalFolder(entry.uri, target, source)
             } else {
                 copyExternalFile(entry.uri, destination)
             }
@@ -1844,6 +1854,58 @@ class MainActivity : Activity() {
             "先にフォルダを選択してください",
             Toast.LENGTH_SHORT
         ).show()
+    }
+
+    private fun queryFolderFromTree(
+        folderUri: Uri,
+        treeUri: Uri
+    ): List<ManagedEntry> {
+        val parentId = try {
+            DocumentsContract.getDocumentId(folderUri)
+        } catch (_: Exception) {
+            DocumentsContract.getTreeDocumentId(treeUri)
+        }
+
+        val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(
+            treeUri,
+            parentId
+        )
+
+        val result = mutableListOf<ManagedEntry>()
+        val projection = arrayOf(
+            DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+            DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+            DocumentsContract.Document.COLUMN_MIME_TYPE
+        )
+
+        contentResolver.query(
+            childrenUri,
+            projection,
+            null,
+            null,
+            null
+        )?.use { cursor ->
+            val idIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+            val nameIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+            val mimeIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)
+
+            while (cursor.moveToNext()) {
+                val id = cursor.getString(idIndex)
+                val name = cursor.getString(nameIndex) ?: "(名称なし)"
+                val mime = cursor.getString(mimeIndex) ?: "application/octet-stream"
+
+                result.add(
+                    ManagedEntry(
+                        DocumentsContract.buildDocumentUriUsingTree(treeUri, id),
+                        name,
+                        mime,
+                        mime == DocumentsContract.Document.MIME_TYPE_DIR
+                    )
+                )
+            }
+        }
+
+        return result
     }
 
     private fun queryFolder(
