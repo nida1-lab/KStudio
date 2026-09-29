@@ -3462,29 +3462,21 @@ class MainActivity : Activity() {
                 text =
                     if (source.isEmpty()) {
 
-                        "KStudio is ready.
-
-" +
+                        "KStudio is ready.\n\n" +
                         "ファイルを開くか、コードを書いてください。"
 
                     } else {
 
-                        "KStudio Preview
-
-" +
+                        "KStudio Preview\n\n" +
                         "File: " +
                         currentFileName +
-                        "
-" +
+                        "\n" +
                         "Lines: " +
                         source.lines().size +
-                        "
-" +
+                        "\n" +
                         "Characters: " +
                         source.length +
-                        "
-
-" +
+                        "\n\n" +
                         "▶ Run でコードの基本チェックを実行できます。"
                     }
 
