@@ -173,7 +173,7 @@ class MainActivity : Activity() {
                 keyCode ==
                 KeyEvent.KEYCODE_DEL
             ) {
-                return@setOnKeyListener
+                return@setOnKeyListener true
                     handleDeletePair()
             }
 
