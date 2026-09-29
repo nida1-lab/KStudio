@@ -1698,7 +1698,7 @@ class MainActivity : Activity() {
         if (
             value.contains('/') ||
             value.contains('\\') ||
-            value.indexOf(' ') >= 0
+            value.indexOf(0.toChar()) >= 0
         ) {
             return label + "に使用できない文字があります"
         }
