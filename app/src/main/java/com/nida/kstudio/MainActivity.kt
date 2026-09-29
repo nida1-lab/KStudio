@@ -83,6 +83,90 @@ class MainActivity : Activity() {
         fullscreenButton =
             findViewById(R.id.fullscreenButton)
 
+// Folder Picker
+
+private fun openFolderPicker() {
+
+    val intent =
+        Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
+
+    intent.addFlags(
+        Intent.FLAG_GRANT_READ_URI_PERMISSION or
+        Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+        Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+    )
+
+    startActivityForResult(
+        intent,
+        1001
+    )
+}
+
+// Folder Result
+
+override fun onActivityResult(
+    requestCode: Int,
+    resultCode: Int,
+    data: Intent?
+) {
+    super.onActivityResult(
+        requestCode,
+        resultCode,
+        data
+    )
+
+    if (
+        requestCode == 1001 &&
+        resultCode == RESULT_OK
+    ) {
+
+        val uri =
+            data?.data
+                ?: return
+
+        try {
+
+            contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+
+        } catch (_: Exception) {
+        }
+
+        val projectName =
+            getFolderName(uri)
+
+        findViewById<TextView>(
+            R.id.projectName
+        ).text =
+            "現在編集中: $projectName"
+    }
+}
+
+// Folder Name
+
+private fun getFolderName(
+    uri: Uri
+): String {
+
+    val path =
+        uri.path
+            ?: return "選択したフォルダ"
+
+    val name =
+        path.substringAfterLast(":")
+
+    return if (
+        name.isNotEmpty()
+    ) {
+        name
+    } else {
+        "選択したフォルダ"
+    }
+}
+
         // Editor
 
         codeEditor.setText("")
