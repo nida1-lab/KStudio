@@ -21,7 +21,7 @@
             android:id="@+id/menuButton"
             android:layout_width="112dp"
             android:layout_height="44dp"
-            android:text="☰ メニュー"
+            android:text="メニュー"
             android:textSize="14sp"
             android:minWidth="0dp"
             android:minHeight="0dp"
@@ -294,7 +294,9 @@
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
                 android:gravity="center_vertical"
-                android:text="🗂️ App"
+                android:text="App"
+                android:drawableStart="@drawable/ic_project_simple"
+                android:drawablePadding="8dp"
                 android:textSize="22sp"
                 android:textStyle="bold" />
 
@@ -678,7 +680,9 @@
             android:id="@+id/runButton"
             android:layout_width="78dp"
             android:layout_height="42dp"
-            android:text="▶ Run"
+            android:text="Run"
+            android:drawableStart="@drawable/ic_play_simple"
+            android:drawablePadding="8dp"
             android:minWidth="0dp"
             android:background="@drawable/rounded_button" />
 
