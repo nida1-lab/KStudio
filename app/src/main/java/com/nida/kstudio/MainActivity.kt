@@ -658,6 +658,7 @@ class MainActivity : Activity() {
 
     private fun showEditorScreen() {
 
+        if (::saveCommitPanel.isInitialized) saveCommitPanel.visibility = View.GONE
         homeTab.visibility = View.GONE
         editorContainer.visibility = View.VISIBLE
         previewArea.visibility = View.VISIBLE
@@ -678,6 +679,13 @@ class MainActivity : Activity() {
     private fun setupHomeAndSaveUi() {
 
         val homeLayout = homeTab as LinearLayout
+        val fileScroll = homeLayout.getChildAt(1)
+
+        homeLayout.removeAllViews()
+
+        val homeHeader = LinearLayout(this)
+        homeHeader.orientation = LinearLayout.HORIZONTAL
+        homeHeader.gravity = Gravity.CENTER_VERTICAL
 
         homeProjectTitle.layoutParams =
             LinearLayout.LayoutParams(
@@ -685,6 +693,8 @@ class MainActivity : Activity() {
                 dpToPx(56),
                 1f
             )
+
+        homeHeader.addView(homeProjectTitle)
 
         homeMoreButton = Button(this).apply {
             text = "..."
@@ -695,11 +705,28 @@ class MainActivity : Activity() {
             }
         }
 
-        homeLayout.addView(
+        homeHeader.addView(
             homeMoreButton,
             LinearLayout.LayoutParams(
                 dpToPx(48),
                 dpToPx(44)
+            )
+        )
+
+        homeLayout.addView(
+            homeHeader,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dpToPx(56)
+            )
+        )
+
+        homeLayout.addView(
+            fileScroll,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0,
+                1f
             )
         )
 
@@ -731,275 +758,6 @@ class MainActivity : Activity() {
                 dpToPx(42)
             )
         )
-    }
-
-    private fun showHomeActionsMenu(anchor: View) {
-        val menu = LinearLayout(this)
-        menu.orientation = LinearLayout.VERTICAL
-        menu.setPadding(dpToPx(10), dpToPx(10), dpToPx(10), dpToPx(10))
-        menu.setBackgroundColor(surfaceColor())
-
-        val popup = PopupWindow(
-            menu,
-            dpToPx(280),
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            true
-        )
-
-        val newFile = Button(this)
-        newFile.text = "Create new file"
-        newFile.setOnClickListener {
-            folderRootUri?.let {
-                currentFolderUri = it
-                showCreateFileTab()
-            } ?: showNoFolderToast()
-            popup.dismiss()
-        }
-        menu.addView(newFile)
-
-        val newFolder = Button(this)
-        newFolder.text = "Create new folder"
-        newFolder.setOnClickListener {
-            folderRootUri?.let {
-                askCreateFolder(it) { showHomeTab() }
-            } ?: showNoFolderToast()
-            popup.dismiss()
-        }
-        menu.addView(newFolder)
-
-        val search = Button(this)
-        search.text = "Search file"
-        search.setOnClickListener {
-            showFileSearchDialog()
-            popup.dismiss()
-        }
-        menu.addView(search)
-
-        popup.showAsDropDown(
-            anchor,
-            -dpToPx(230),
-            dpToPx(4)
-        )
-    }
-
-    private fun showFileSearchDialog() {
-        val input = EditText(this)
-        input.hint = "ファイル名"
-        input.setSingleLine(true)
-
-        android.app.AlertDialog.Builder(this)
-            .setTitle("Search file")
-            .setView(input)
-            .setNegativeButton("キャンセル", null)
-            .setPositiveButton("検索") { _, _ ->
-                val keyword = input.text.toString().trim()
-                if (keyword.isEmpty()) return@setPositiveButton
-
-                val root = folderRootUri ?: return@setPositiveButton
-                val results = queryFolder(root).filter {
-                    !it.isDirectory &&
-                    it.name.contains(keyword, ignoreCase = true)
-                }
-
-                if (results.isEmpty()) {
-                    Toast.makeText(
-                        this,
-                        "ファイルが見つかりません",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                    return@setPositiveButton
-                }
-
-                val labels = results.map {
-                    "📄 " + it.name
-                }.toTypedArray()
-
-                android.app.AlertDialog.Builder(this)
-                    .setTitle("検索結果")
-                    .setItems(labels) { _, which ->
-                        val entry = results[which]
-                        openManagedFile(entry.uri, entry.name)
-                    }
-                    .show()
-            }
-            .show()
-    }
-
-    private fun showSaveCommitPanel() {
-        if (currentFileUri == null) {
-            Toast.makeText(
-                this,
-                "保存するファイルがありません",
-                Toast.LENGTH_SHORT
-            ).show()
-            return
-        }
-
-        if (!::saveCommitPanel.isInitialized) {
-            buildSaveCommitPanel()
-        }
-
-        saveCommitFileNameInput.setText(currentFileName)
-        saveCommitMessageInput.setText("")
-
-        homeTab.visibility = View.GONE
-        editorContainer.visibility = View.GONE
-        previewArea.visibility = View.GONE
-        projectTab.visibility = View.GONE
-        fileTab.visibility = View.GONE
-        historyTab.visibility = View.GONE
-        saveCommitPanel.visibility = View.VISIBLE
-        bottomHeader.visibility = View.GONE
-        searchBar.visibility = View.GONE
-        projectBar.visibility = View.VISIBLE
-    }
-
-    private fun buildSaveCommitPanel() {
-        saveCommitPanel = LinearLayout(this)
-        saveCommitPanel.orientation = LinearLayout.VERTICAL
-        saveCommitPanel.setPadding(
-            dpToPx(16),
-            dpToPx(8),
-            dpToPx(16),
-            dpToPx(16)
-        )
-
-        val title = TextView(this)
-        title.text = "編集を保存"
-        title.textSize = 22f
-        saveCommitPanel.addView(title)
-
-        val fileLabel = TextView(this)
-        fileLabel.text = "ファイル名"
-        fileLabel.setPadding(0, dpToPx(18), 0, dpToPx(6))
-        saveCommitPanel.addView(fileLabel)
-
-        saveCommitFileNameInput = EditText(this)
-        saveCommitFileNameInput.setSingleLine(true)
-        saveCommitFileNameInput.isEnabled = false
-        saveCommitPanel.addView(
-            saveCommitFileNameInput,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dpToPx(52)
-            )
-        )
-
-        val messageLabel = TextView(this)
-        messageLabel.text = "編集内容の説明（任意）"
-        messageLabel.setPadding(0, dpToPx(18), 0, dpToPx(6))
-        saveCommitPanel.addView(messageLabel)
-
-        saveCommitMessageInput = EditText(this)
-        saveCommitMessageInput.hint = "編集内容を入力"
-        saveCommitMessageInput.gravity = Gravity.TOP or Gravity.START
-        saveCommitMessageInput.minLines = 4
-        saveCommitPanel.addView(
-            saveCommitMessageInput,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dpToPx(120)
-            )
-        )
-
-        val spacer = View(this)
-        saveCommitPanel.addView(
-            spacer,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                0,
-                1f
-            )
-        )
-
-        val buttons = LinearLayout(this)
-        buttons.orientation = LinearLayout.HORIZONTAL
-
-        saveCommitCancelButton = Button(this)
-        saveCommitCancelButton.text = "キャンセル"
-        saveCommitCancelButton.setOnClickListener {
-            showEditorScreen()
-        }
-
-        saveCommitButton = Button(this)
-        saveCommitButton.text = "保存する"
-        saveCommitButton.setOnClickListener {
-            saveEditCommit()
-        }
-
-        buttons.addView(
-            saveCommitCancelButton,
-            LinearLayout.LayoutParams(
-                0,
-                dpToPx(48),
-                1f
-            )
-        )
-        buttons.addView(
-            saveCommitButton,
-            LinearLayout.LayoutParams(
-                0,
-                dpToPx(48),
-                1f
-            ).apply {
-                marginStart = dpToPx(6)
-            }
-        )
-
-        saveCommitPanel.addView(buttons)
-
-        (workArea as LinearLayout).addView(
-            saveCommitPanel,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.MATCH_PARENT
-            )
-        )
-    }
-
-    private fun saveEditCommit() {
-        val text = saveCommitMessageInput.text.toString().trim()
-        val description =
-            if (text.isEmpty()) "編集を保存" else text
-
-        saveCurrentFile {
-            saveEditHistory(
-                currentFileName,
-                description
-            )
-            saveCommitPanel.visibility = View.GONE
-            showEditorScreen()
-        }
-    }
-
-    private fun saveEditHistory(
-        fileName: String,
-        description: String
-    ) {
-        val preferences = getSharedPreferences(
-            "KStudio",
-            Context.MODE_PRIVATE
-        )
-
-        val oldHistory =
-            preferences.getString("history", "") ?: ""
-
-        val time = SimpleDateFormat(
-            "yyyy-MM-dd HH:mm",
-            Locale.getDefault()
-        ).format(Date())
-
-        val entry =
-            "$time  Save  $fileName\\n" +
-            "$description\\n" +
-            "--------------------------------\\n"
-
-        preferences.edit()
-            .putString(
-                "history",
-                entry + oldHistory
-            )
-            .apply()
     }
 
     // Main Menu
@@ -3281,6 +3039,7 @@ class MainActivity : Activity() {
             return
         }
 
+        if (::saveCommitPanel.isInitialized) saveCommitPanel.visibility = View.GONE
         homeTab.visibility = View.VISIBLE
         editorContainer.visibility = View.GONE
         previewArea.visibility = View.GONE
