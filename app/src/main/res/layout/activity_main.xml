@@ -136,6 +136,7 @@
 
     <LinearLayout
         android:id="@+id/searchBar"
+        android:background="@drawable/rounded_panel"
         android:layout_width="match_parent"
         android:layout_height="52dp"
         android:padding="6dp"
@@ -196,6 +197,7 @@
         <!-- Editor -->
         <LinearLayout
             android:id="@+id/editorContainer"
+        android:background="@drawable/rounded_panel"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
@@ -230,6 +232,7 @@
         <!-- Preview -->
         <LinearLayout
             android:id="@+id/previewArea"
+        android:background="@drawable/rounded_panel"
             android:layout_width="match_parent"
             android:layout_height="180dp"
             android:orientation="vertical">
@@ -282,6 +285,7 @@
         <!-- Home Tab -->
         <LinearLayout
             android:id="@+id/homeTab"
+        android:background="@drawable/rounded_panel"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="vertical"
@@ -317,6 +321,7 @@
         <!-- Project Tab -->
         <LinearLayout
             android:id="@+id/projectTab"
+        android:background="@drawable/rounded_panel"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="vertical"
@@ -365,6 +370,7 @@
         <!-- File Tab -->
         <LinearLayout
             android:id="@+id/fileTab"
+        android:background="@drawable/rounded_panel"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="vertical"
@@ -569,6 +575,7 @@
         <!-- History Tab -->
         <LinearLayout
             android:id="@+id/historyTab"
+        android:background="@drawable/rounded_panel"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:orientation="vertical"
@@ -614,11 +621,11 @@
                 android:layout_height="0dp"
                 android:layout_weight="1">
 
-                <TextView
+                <LinearLayout
                     android:id="@+id/historyText"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textSize="15sp"
+                    android:orientation="vertical"
                     android:paddingTop="8dp"
                     android:paddingBottom="24dp" />
 
