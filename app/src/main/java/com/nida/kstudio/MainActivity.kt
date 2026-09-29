@@ -211,6 +211,31 @@ class MainActivity : Activity() {
                 return@setOnKeyListener false
             }
 
+            if (event.isCtrlPressed &&
+                keyCode == KeyEvent.KEYCODE_Z
+            ) {
+                if (event.isShiftPressed) {
+                    redoEditor()
+                } else {
+                    undoEditor()
+                }
+                return@setOnKeyListener true
+            }
+
+            if (event.isCtrlPressed &&
+                keyCode == KeyEvent.KEYCODE_Y
+            ) {
+                redoEditor()
+                return@setOnKeyListener true
+            }
+
+            if (event.isCtrlPressed &&
+                keyCode == KeyEvent.KEYCODE_S
+            ) {
+                saveCurrentFile()
+                return@setOnKeyListener true
+            }
+
             if (keyCode == KeyEvent.KEYCODE_DEL) {
                 return@setOnKeyListener handleDeletePair()
             }
@@ -907,9 +932,10 @@ class MainActivity : Activity() {
                         setOnLongClickListener {
 
                             showFileActions(
-                                entry,
-                                ::render
-                            )
+                                entry
+                            ) {
+                                render()
+                            }
 
                             true
                         }
