@@ -391,7 +391,7 @@ class MainActivity : Activity() {
                 )
 
                 setBackgroundColor(
-                    Color.WHITE
+                    surfaceColor()
                 )
             }
 
@@ -927,8 +927,7 @@ class MainActivity : Activity() {
                 projection,
                 null,
                 null,
-                DocumentsContract.Document.COLUMN_DISPLAY_NAME +
-                    " COLLATE NOCASE ASC"
+                null
             )?.use { cursor ->
 
                 val idIndex =
@@ -989,7 +988,12 @@ class MainActivity : Activity() {
             ).show()
         }
 
-        return result
+        return result.sortedWith(
+            compareBy<ManagedEntry>(
+                { !it.isDirectory },
+                { it.name.lowercase(Locale.getDefault()) }
+            )
+        )
     }
 
     private fun openManagedFile(
