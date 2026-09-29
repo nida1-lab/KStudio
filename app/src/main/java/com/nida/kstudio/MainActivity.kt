@@ -596,6 +596,17 @@ class MainActivity : Activity() {
         }
 
         updatePreview()
+
+        if (
+            savedInstanceState == null &&
+            folderRootUri == null
+        ) {
+            openFolderPicker()
+        } else if (
+            folderRootUri == null
+        ) {
+            showStartupScreen()
+        }
     }
 
     override fun onSaveInstanceState(
