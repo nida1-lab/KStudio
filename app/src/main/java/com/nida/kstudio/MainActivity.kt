@@ -648,6 +648,25 @@ class MainActivity : Activity() {
         )
     }
 
+    private fun showEditorScreen() {
+
+        homeTab.visibility = View.GONE
+        editorContainer.visibility = View.VISIBLE
+        previewArea.visibility = View.VISIBLE
+        projectTab.visibility = View.GONE
+        fileTab.visibility = View.GONE
+        historyTab.visibility = View.GONE
+        bottomHeader.visibility = View.VISIBLE
+        searchBar.visibility = View.VISIBLE
+        projectBar.visibility = View.VISIBLE
+
+        previewTitle.text = "Preview"
+
+        applyEditorPreviewOrder()
+        updatePreview()
+    }
+
+
     // Main Menu
 
     private fun showMainMenu(
@@ -679,24 +698,6 @@ class MainActivity : Activity() {
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 true
             )
-
-        private fun showEditorScreen() {
-
-        homeTab.visibility = View.GONE
-        editorContainer.visibility = View.VISIBLE
-        previewArea.visibility = View.VISIBLE
-        projectTab.visibility = View.GONE
-        fileTab.visibility = View.GONE
-        historyTab.visibility = View.GONE
-        bottomHeader.visibility = View.VISIBLE
-        searchBar.visibility = View.VISIBLE
-        projectBar.visibility = View.VISIBLE
-
-        previewTitle.text = "Preview"
-
-        applyEditorPreviewOrder()
-        updatePreview()
-    }
 
     // Home
 
