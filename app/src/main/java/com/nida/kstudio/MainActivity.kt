@@ -49,6 +49,8 @@ class MainActivity : Activity() {
     private lateinit var homeTab: View
     private lateinit var homeProjectTitle: TextView
     private lateinit var homeFileList: LinearLayout
+    private lateinit var homeMoreButton: Button
+    private lateinit var saveCommitOpenButton: Button
     private lateinit var projectTab: View
     private lateinit var projectList: LinearLayout
     private lateinit var fileTab: View
@@ -77,6 +79,11 @@ class MainActivity : Activity() {
     private lateinit var undoButton: Button
     private lateinit var redoButton: Button
     private lateinit var saveButton: Button
+    private lateinit var saveCommitPanel: LinearLayout
+    private lateinit var saveCommitFileNameInput: EditText
+    private lateinit var saveCommitMessageInput: EditText
+    private lateinit var saveCommitButton: Button
+    private lateinit var saveCommitCancelButton: Button
 
     private data class ManagedEntry(
         val uri: Uri,
@@ -145,6 +152,7 @@ class MainActivity : Activity() {
         homeTab = findViewById(R.id.homeTab)
         homeProjectTitle = findViewById(R.id.homeProjectTitle)
         homeFileList = findViewById(R.id.homeFileList)
+        setupHomeAndSaveUi()
         projectTab = findViewById(R.id.projectTab)
         projectList = findViewById(R.id.projectList)
         fileTab = findViewById(R.id.fileTab)
@@ -1510,7 +1518,7 @@ class MainActivity : Activity() {
                 updateHistoryButtons()
                 lineNumbers.invalidate()
                 highlightCode()
-                showHomeTab()
+                showEditorScreen()
 
                 Toast.makeText(
                     this,
