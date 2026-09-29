@@ -408,7 +408,7 @@
                     android:id="@+id/filePathView"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="📁 フォルダ"
+                    android:text="フォルダ"
                     android:textSize="13sp"
                     android:maxLines="2"
                     android:ellipsize="end"
