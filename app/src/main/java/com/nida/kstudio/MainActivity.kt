@@ -46,6 +46,9 @@ class MainActivity : Activity() {
     private lateinit var bottomHeader: View
     private lateinit var previewHeader: View
     private lateinit var previewArea: View
+    private lateinit var homeTab: View
+    private lateinit var homeProjectTitle: TextView
+    private lateinit var homeFileList: LinearLayout
     private lateinit var projectTab: View
     private lateinit var projectList: LinearLayout
     private lateinit var fileTab: View
@@ -138,6 +141,9 @@ class MainActivity : Activity() {
             findViewById(R.id.previewHeader)
 
         previewArea = findViewById(R.id.previewArea)
+        homeTab = findViewById(R.id.homeTab)
+        homeProjectTitle = findViewById(R.id.homeProjectTitle)
+        homeFileList = findViewById(R.id.homeFileList)
         projectTab = findViewById(R.id.projectTab)
         projectList = findViewById(R.id.projectList)
         fileTab = findViewById(R.id.fileTab)
@@ -206,6 +212,8 @@ class MainActivity : Activity() {
         // Editor
 
         codeEditor.setText("")
+
+        showStartupScreen()
 
         lineNumbers.setEditor(
             codeEditor
@@ -2671,26 +2679,167 @@ class MainActivity : Activity() {
 
     // Tabs
 
+    // Home
+
+    private fun showStartupScreen() {
+
+        homeTab.visibility = View.VISIBLE
+        editorContainer.visibility = View.GONE
+        previewArea.visibility = View.GONE
+        projectTab.visibility = View.GONE
+        fileTab.visibility = View.GONE
+        historyTab.visibility = View.GONE
+        bottomHeader.visibility = View.GONE
+        searchBar.visibility = View.GONE
+        projectBar.visibility = View.GONE
+
+        homeProjectTitle.text =
+            if (folderRootUri == null) {
+                "🗂️ App"
+            } else {
+                "🗂️ " + getFolderName(folderRootUri!!)
+            }
+
+        renderHomeFiles()
+    }
+
     private fun showHomeTab() {
 
         if (fullscreen) {
             togglePreviewFullscreen()
         }
 
+        if (folderRootUri == null || currentFolderUri == null) {
+            showStartupScreen()
+            return
+        }
+
+        homeTab.visibility = View.VISIBLE
+        editorContainer.visibility = View.GONE
+        previewArea.visibility = View.GONE
         projectTab.visibility = View.GONE
         fileTab.visibility = View.GONE
         historyTab.visibility = View.GONE
-        fileBrowserPanel.visibility = View.VISIBLE
-        fileCreatePanel.visibility = View.GONE
-        editorContainer.visibility = View.VISIBLE
-        previewArea.visibility = View.VISIBLE
-        bottomHeader.visibility = View.VISIBLE
-        searchBar.visibility = View.VISIBLE
-        projectBar.visibility = View.VISIBLE
-        previewTitle.text = "Preview"
+        bottomHeader.visibility = View.GONE
+        searchBar.visibility = View.GONE
+        projectBar.visibility = View.GONE
 
+        homeProjectTitle.text =
+            "🗂️ " + getFolderName(folderRootUri!!)
+
+        renderHomeFiles()
+    }
+
+    private fun renderHomeFiles() {
+
+        homeFileList.removeAllViews()
+
+        val root =
+            folderRootUri
+                ?: return
+
+        val entries =
+            queryFolder(root)
+
+        if (entries.isEmpty()) {
+            val empty = TextView(this).apply {
+                text =
+                    "📁 フォルダは空です。\n\n" +
+                    "「ファイル」から新しいファイルを作成できます。"
+                textSize = 15f
+                setTextColor(secondaryTextColor())
+                setPadding(
+                    dpToPx(8),
+                    dpToPx(20),
+                    dpToPx(8),
+                    dpToPx(20)
+                )
+            }
+            homeFileList.addView(empty)
+            return
+        }
+
+        entries.forEach { entry ->
+
+            val row =
+                TextView(this).apply {
+                    text =
+                        if (entry.isDirectory) {
+                            "📁 " + entry.name
+                        } else {
+                            "📄 " + entry.name
+                        }
+
+                    textSize = 17f
+                    setTextColor(primaryTextColor())
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(
+                        dpToPx(10),
+                        dpToPx(14),
+                        dpToPx(10),
+                        dpToPx(14)
+                    )
+                    isClickable = true
+                    isFocusable = true
+
+                    setOnClickListener {
+                        if (entry.isDirectory) {
+                            openHomeFolder(entry.uri)
+                        } else if (
+                            isSupportedTextFile(
+                                entry.name,
+                                entry.mimeType
+                            )
+                        ) {
+                            openManagedFile(
+                                entry.uri,
+                                entry.name
+                            )
+                        } else {
+                            Toast.makeText(
+                                this@MainActivity,
+                                "このファイルはKStudioで編集できません",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                }
+
+            homeFileList.addView(
+                row,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    dpToPx(54)
+                )
+            )
+        }
+    }
+
+    private fun openHomeFolder(uri: Uri) {
+
+        currentFolderStack.add(
+            currentFolderUri
+                ?: uri
+        )
+
+        currentFolderUri = uri
+        showHomeTab()
+    }
+
+    private fun swapEditorAndPreview() {
+
+        if (
+            fullscreen ||
+            homeTab.visibility == View.VISIBLE ||
+            projectTab.visibility == View.VISIBLE ||
+            fileTab.visibility == View.VISIBLE ||
+            historyTab.visibility == View.VISIBLE
+        ) {
+            return
+        }
+
+        editorPreviewSwapped = !editorPreviewSwapped
         applyEditorPreviewOrder()
-        updatePreview()
     }
 
     private fun swapEditorAndPreview() {
