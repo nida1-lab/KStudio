@@ -1916,6 +1916,7 @@ class MainActivity : Activity() {
                     .apply()
 
                 createInitialProjectFile {
+                    renderHomeFiles()
                     showEditorScreen()
 
                     Toast.makeText(
@@ -5058,12 +5059,42 @@ class MainActivity : Activity() {
             textSize = 15f
             setTextColor(primaryTextColor())
         }
-        val serialRow = TextView(this).apply {
-            text = "│  " + serial
-            textSize = 13f
-            setTextColor(secondaryTextColor())
+        val serialRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
             setPadding(0, dpToPx(6), 0, 0)
         }
+
+        serialRow.addView(
+            TextView(this).apply {
+                text = "│  " + serial
+                textSize = 13f
+                setTextColor(secondaryTextColor())
+                gravity = Gravity.CENTER_VERTICAL
+            },
+            LinearLayout.LayoutParams(0, dpToPx(40), 1f)
+        )
+
+        serialRow.addView(
+            Button(this).apply {
+                text = "コピー"
+                textSize = 12f
+                styleKStudioButton(this)
+                setOnClickListener {
+                    val clipboard =
+                        getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(
+                        ClipData.newPlainText("KStudio 履歴コード", serial)
+                    )
+                    Toast.makeText(
+                        this@MainActivity,
+                        "固有コードをコピーしました",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            },
+            LinearLayout.LayoutParams(dpToPx(76), dpToPx(40))
+        )
         val detailRow = TextView(this).apply {
             text = if (type == "run") {
                 if (success) "│  成功" else "│  失敗"
