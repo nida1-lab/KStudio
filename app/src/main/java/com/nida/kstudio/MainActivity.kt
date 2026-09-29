@@ -48,9 +48,28 @@ class MainActivity : Activity() {
     private lateinit var previewArea: View
     private lateinit var projectTab: View
     private lateinit var projectList: LinearLayout
+    private lateinit var fileTab: View
+    private lateinit var fileBrowserPanel: View
+    private lateinit var fileCreatePanel: View
+    private lateinit var fileList: LinearLayout
+    private lateinit var filePathView: TextView
+    private lateinit var fileCreateLocation: TextView
+    private lateinit var fileCreatePathInput: EditText
+    private lateinit var fileCreateContentInput: EditText
     private lateinit var previewTitle: TextView
     private lateinit var swapButton: Button
     private lateinit var projectTabBackButton: Button
+    private lateinit var fileTabBackButton: Button
+    private lateinit var fileNewButton: Button
+    private lateinit var fileNewFolderButton: Button
+    private lateinit var fileUpButton: Button
+    private lateinit var fileRefreshButton: Button
+    private lateinit var fileCreateButton: Button
+    private lateinit var fileCreateCancelButton: Button
+    private lateinit var historyTab: View
+    private lateinit var historyText: TextView
+    private lateinit var historyClearButton: Button
+    private lateinit var historyTabBackButton: Button
     private lateinit var fullscreenButton: Button
     private lateinit var undoButton: Button
     private lateinit var redoButton: Button
@@ -121,9 +140,28 @@ class MainActivity : Activity() {
         previewArea = findViewById(R.id.previewArea)
         projectTab = findViewById(R.id.projectTab)
         projectList = findViewById(R.id.projectList)
+        fileTab = findViewById(R.id.fileTab)
+        fileBrowserPanel = findViewById(R.id.fileBrowserPanel)
+        fileCreatePanel = findViewById(R.id.fileCreatePanel)
+        fileList = findViewById(R.id.fileList)
+        filePathView = findViewById(R.id.filePathView)
+        fileCreateLocation = findViewById(R.id.fileCreateLocation)
+        fileCreatePathInput = findViewById(R.id.fileCreatePathInput)
+        fileCreateContentInput = findViewById(R.id.fileCreateContentInput)
         previewTitle = findViewById(R.id.previewTitle)
         swapButton = findViewById(R.id.swapButton)
         projectTabBackButton = findViewById(R.id.projectTabBackButton)
+        fileTabBackButton = findViewById(R.id.fileTabBackButton)
+        fileNewButton = findViewById(R.id.fileNewButton)
+        fileNewFolderButton = findViewById(R.id.fileNewFolderButton)
+        fileUpButton = findViewById(R.id.fileUpButton)
+        fileRefreshButton = findViewById(R.id.fileRefreshButton)
+        fileCreateButton = findViewById(R.id.fileCreateButton)
+        fileCreateCancelButton = findViewById(R.id.fileCreateCancelButton)
+        historyTab = findViewById(R.id.historyTab)
+        historyText = findViewById(R.id.historyText)
+        historyClearButton = findViewById(R.id.historyClearButton)
+        historyTabBackButton = findViewById(R.id.historyTabBackButton)
 
         val runButton =
             findViewById<Button>(
@@ -149,6 +187,7 @@ class MainActivity : Activity() {
         val topFolderButton = findViewById<TextView>(R.id.topFolderButton)
         val topHistoryButton = findViewById<TextView>(R.id.topHistoryButton)
         val topProjectsButton = findViewById<TextView>(R.id.topProjectsButton)
+        val topFilesButton = findViewById<TextView>(R.id.topFilesButton)
 
         fullscreenButton =
             findViewById(
@@ -409,6 +448,49 @@ class MainActivity : Activity() {
             showHomeTab()
         }
 
+        fileTabBackButton.setOnClickListener {
+            showHomeTab()
+        }
+
+        fileNewButton.setOnClickListener {
+            showCreateFileTab()
+        }
+
+        fileNewFolderButton.setOnClickListener {
+            val folder = currentFolderUri
+            if (folder != null) {
+                askCreateFolder(folder) {
+                    renderFileBrowser()
+                }
+            } else {
+                showNoFolderToast()
+            }
+        }
+
+        fileUpButton.setOnClickListener {
+            navigateFileManagerUp()
+        }
+
+        fileRefreshButton.setOnClickListener {
+            renderFileBrowser()
+        }
+
+        fileCreateCancelButton.setOnClickListener {
+            showFileBrowserTab()
+        }
+
+        fileCreateButton.setOnClickListener {
+            createGitHubStyleFile()
+        }
+
+        historyTabBackButton.setOnClickListener {
+            showHomeTab()
+        }
+
+        historyClearButton.setOnClickListener {
+            clearHistory()
+        }
+
         // Top Navigation
 
         topHomeButton.setOnClickListener {
@@ -425,6 +507,10 @@ class MainActivity : Activity() {
 
         topProjectsButton.setOnClickListener {
             showProjects()
+        }
+
+        topFilesButton.setOnClickListener {
+            showFileManager()
         }
 
         // Fullscreen
@@ -473,6 +559,12 @@ class MainActivity : Activity() {
                     false
                 )
 
+            editorPreviewSwapped =
+                savedInstanceState.getBoolean(
+                    "editorPreviewSwapped",
+                    false
+                )
+
             updateEditorHeader()
             updateHistoryButtons()
         }
@@ -502,6 +594,11 @@ class MainActivity : Activity() {
         outState.putBoolean(
             "dirty",
             isDirty
+        )
+
+        outState.putBoolean(
+            "editorPreviewSwapped",
+            editorPreviewSwapped
         )
 
         super.onSaveInstanceState(
