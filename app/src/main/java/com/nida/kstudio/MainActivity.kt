@@ -1210,7 +1210,7 @@ class MainActivity : Activity() {
 
         val panelWidth = minOf(
             dpToPx(340),
-            resources.displayMetrics.widthPixels - dpToPx(24)
+            resources.displayMetrics.widthPixels
         )
 
         val panel = LinearLayout(this).apply {
@@ -1371,7 +1371,7 @@ class MainActivity : Activity() {
             )
         )
 
-        val panelWidth = resources.displayMetrics.widthPixels - dpToPx(12)
+        val panelWidth = resources.displayMetrics.widthPixels
 
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -1381,7 +1381,7 @@ class MainActivity : Activity() {
                 dpToPx(12),
                 dpToPx(12)
             )
-            background = roundedBackground(surfaceColor(), 16)
+            background = roundedBackground(surfaceColor(), 0)
         }
 
         val header = LinearLayout(this).apply {
