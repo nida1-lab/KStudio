@@ -841,6 +841,7 @@ class MainActivity : Activity() {
             saveRecentFolder(uri)
             updateEditorHeader()
             updateHistoryButtons()
+            showHomeTab()
 
             Toast.makeText(
                 this,
@@ -2597,6 +2598,30 @@ class MainActivity : Activity() {
         previewContainer.setBackgroundColor(
             previewSurfaceColor()
         )
+
+        fileCreateContentInput.setTextColor(
+            primaryTextColor()
+        )
+
+        fileCreateContentInput.setHintTextColor(
+            secondaryTextColor()
+        )
+
+        fileCreateContentInput.setBackgroundColor(
+            editorSurfaceColor()
+        )
+
+        fileCreatePathInput.setTextColor(
+            primaryTextColor()
+        )
+
+        fileCreatePathInput.setHintTextColor(
+            secondaryTextColor()
+        )
+
+        historyText.setTextColor(
+            primaryTextColor()
+        )
     }
 
     // Preview Fullscreen    // Preview Fullscreen
@@ -2653,6 +2678,10 @@ class MainActivity : Activity() {
         }
 
         projectTab.visibility = View.GONE
+        fileTab.visibility = View.GONE
+        historyTab.visibility = View.GONE
+        fileBrowserPanel.visibility = View.VISIBLE
+        fileCreatePanel.visibility = View.GONE
         editorContainer.visibility = View.VISIBLE
         previewArea.visibility = View.VISIBLE
         bottomHeader.visibility = View.VISIBLE
@@ -2666,7 +2695,12 @@ class MainActivity : Activity() {
 
     private fun swapEditorAndPreview() {
 
-        if (fullscreen || projectTab.visibility == View.VISIBLE) {
+        if (
+            fullscreen ||
+            projectTab.visibility == View.VISIBLE ||
+            fileTab.visibility == View.VISIBLE ||
+            historyTab.visibility == View.VISIBLE
+        ) {
             return
         }
 
@@ -2714,6 +2748,8 @@ class MainActivity : Activity() {
         }
 
         projectTab.visibility = View.VISIBLE
+        fileTab.visibility = View.GONE
+        historyTab.visibility = View.GONE
         editorContainer.visibility = View.GONE
         previewArea.visibility = View.GONE
         bottomHeader.visibility = View.GONE
@@ -3176,7 +3212,89 @@ class MainActivity : Activity() {
         previewContainer.addView(root)
     }
 
+    // History Tab
+
+    private fun showHistory() {
+
+        if (fullscreen) {
+            togglePreviewFullscreen()
+        }
+
+        projectTab.visibility = View.GONE
+        fileTab.visibility = View.GONE
+        historyTab.visibility = View.VISIBLE
+        editorContainer.visibility = View.GONE
+        previewArea.visibility = View.GONE
+        bottomHeader.visibility = View.GONE
+        searchBar.visibility = View.GONE
+        projectBar.visibility = View.GONE
+
+        renderHistoryTab()
+    }
+
+    private fun renderHistoryTab() {
+
+        val preferences =
+            getSharedPreferences(
+                "KStudio",
+                Context.MODE_PRIVATE
+            )
+
+        val history =
+            preferences.getString(
+                "history",
+                ""
+            ) ?: ""
+
+        historyText.text =
+            if (history.isBlank()) {
+                "まだ履歴はありません。\n\nRun を実行するとここに履歴が表示されます。"
+            } else {
+                history
+            }
+
+        historyText.setTextColor(
+            primaryTextColor()
+        )
+    }
+
+    private fun clearHistory() {
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle("履歴を削除しますか？")
+            .setMessage(
+                "実行履歴をすべて削除します。"
+            )
+            .setNegativeButton(
+                "キャンセル",
+                null
+            )
+            .setPositiveButton(
+                "削除"
+            ) { _, _ ->
+
+                getSharedPreferences(
+                    "KStudio",
+                    Context.MODE_PRIVATE
+                )
+                    .edit()
+                    .remove("history")
+                    .apply()
+
+                renderHistoryTab()
+
+                Toast.makeText(
+                    this,
+                    "履歴を削除しました",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+            .show()
+    }
+
     // History Save
+
+
 
     private fun saveHistory() {
 
@@ -3209,56 +3327,7 @@ class MainActivity : Activity() {
             .apply()
     }
 
-    // History
-
-    private fun showHistory() {
-
-        val preferences =
-            getSharedPreferences(
-                "KStudio",
-                Context.MODE_PRIVATE
-            )
-
-        val history =
-            preferences.getString(
-                "history",
-                ""
-            )
-
-        val message =
-            if (
-                history.isNullOrBlank()
-            ) {
-
-                "まだ履歴はありません。"
-
-            } else {
-
-                history
-            }
-
-        val dialog =
-            android.app.AlertDialog.Builder(
-                this
-            )
-                .setTitle("履歴")
-                .setMessage(message)
-                .setPositiveButton(
-                    "閉じる",
-                    null
-                )
-                .setNegativeButton(
-                    "履歴を削除"
-                ) { _, _ ->
-
-                    preferences.edit()
-                        .remove("history")
-                        .apply()
-                }
-                .create()
-
-        dialog.show()
-    }
+    // History (dedicated tab)
 
     // Error UI
 
