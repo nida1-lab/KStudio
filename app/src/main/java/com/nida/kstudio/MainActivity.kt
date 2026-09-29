@@ -27,6 +27,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.regex.Pattern
+import android.content.Intent
+import android.net.Uri
 
 class MainActivity : Activity() {
 
@@ -237,76 +239,134 @@ class MainActivity : Activity() {
 
     // Main Menu
 
-    private fun showMainMenu(anchor: View) {
+private fun showMainMenu(anchor: View) {
 
-        val menu =
-            LinearLayout(this)
+    val menu =
+        LinearLayout(this).apply {
 
-        menu.orientation =
-            LinearLayout.VERTICAL
+            orientation =
+                LinearLayout.VERTICAL
 
-        menu.setPadding(
-            12,
-            12,
-            12,
-            12
-        )
-
-        menu.setBackgroundColor(
-            Color.WHITE
-        )
-
-        val items =
-            arrayOf(
-                "Home",
-                "フォルダ",
-                "履歴",
-                "プロジェクト一覧"
+            setPadding(
+                12,
+                12,
+                12,
+                12
             )
 
-        val popup =
-            PopupWindow(
-                menu,
-                240,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                true
-            )
-
-        for (item in items) {
-
-            val button =
-                Button(this)
-
-            button.text = item
-
-            button.setOnClickListener {
-
-                Toast.makeText(
-                    this,
-                    "$item は準備中です",
-                    Toast.LENGTH_SHORT
-                ).show()
-
-                popup.dismiss()
-            }
-
-            menu.addView(
-                button,
-                LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    52
-                )
+            setBackgroundColor(
+                Color.WHITE
             )
         }
 
-        popup.elevation = 12f
-
-        popup.showAsDropDown(
-            anchor,
-            0,
-            0
+    val popup =
+        PopupWindow(
+            menu,
+            260,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            true
         )
-    }
+
+    // Home
+
+    val homeButton =
+        Button(this).apply {
+
+            text = "Home"
+
+            setOnClickListener {
+
+                updatePreview()
+
+                popup.dismiss()
+            }
+        }
+
+    menu.addView(
+        homeButton,
+        LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            52
+        )
+    )
+
+    // Folder
+
+    val folderButton =
+        Button(this).apply {
+
+            text = "フォルダ"
+
+            setOnClickListener {
+
+                openFolderPicker()
+
+                popup.dismiss()
+            }
+        }
+
+    menu.addView(
+        folderButton,
+        LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            52
+        )
+    )
+
+    // History
+
+    val historyButton =
+        Button(this).apply {
+
+            text = "履歴"
+
+            setOnClickListener {
+
+                showHistory()
+
+                popup.dismiss()
+            }
+        }
+
+    menu.addView(
+        historyButton,
+        LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            52
+        )
+    )
+
+    // Projects
+
+    val projectButton =
+        Button(this).apply {
+
+            text = "プロジェクト一覧"
+
+            setOnClickListener {
+
+                showProjects()
+
+                popup.dismiss()
+            }
+        }
+
+    menu.addView(
+        projectButton,
+        LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            52
+        )
+    )
+
+    popup.elevation = 12f
+
+    popup.showAsDropDown(
+        anchor,
+        0,
+        0
+    )
+}
 
     // Preview Fullscreen
 
