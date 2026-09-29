@@ -774,7 +774,7 @@ class MainActivity : Activity() {
         )
 
         val newFile = Button(this)
-        newFile.text = "Create new file"
+        newFile.text = "Create new file"\n        setSimpleIcon(newFile, R.drawable.ic_file_simple)
         newFile.setOnClickListener {
             folderRootUri?.let {
                 currentFolderUri = it
@@ -785,7 +785,7 @@ class MainActivity : Activity() {
         menu.addView(newFile)
 
         val newFolder = Button(this)
-        newFolder.text = "Create new folder"
+        newFolder.text = "Create new folder"\n        setSimpleIcon(newFolder, R.drawable.ic_folder_simple)
         newFolder.setOnClickListener {
             folderRootUri?.let {
                 askCreateFolder(it) { showHomeTab() }
@@ -795,7 +795,7 @@ class MainActivity : Activity() {
         menu.addView(newFolder)
 
         val search = Button(this)
-        search.text = "🔍 Search file"
+        search.text = "Search file"\n        setSimpleIcon(search, R.drawable.ic_search_simple)
         search.setOnClickListener {
             showFileSearchDialog()
             popup.dismiss()
@@ -982,7 +982,7 @@ class MainActivity : Activity() {
 
         saveCommitPanel.addView(buttons)
 
-        (workArea as LinearLayout).addView(
+        findViewById<ViewGroup>(R.id.workArea).addView(
             saveCommitPanel,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -1563,8 +1563,8 @@ class MainActivity : Activity() {
                 ?: return
 
         filePathView.text =
-            "📁 " +
-                getCurrentFolderDisplayName()
+            getCurrentFolderDisplayName()
+        setSimpleIcon(filePathView, R.drawable.ic_folder_simple)
 
         fileList.removeAllViews()
 
@@ -1598,12 +1598,15 @@ class MainActivity : Activity() {
             val button =
                 Button(this).apply {
 
-                    text =
+                    text = entry.name
+                    setSimpleIcon(
+                        this,
                         if (entry.isDirectory) {
-                            "📁  " + entry.name
+                            R.drawable.ic_folder_simple
                         } else {
-                            "📄  " + entry.name
+                            R.drawable.ic_file_simple
                         }
+                    )
 
                     gravity =
                         Gravity.START or
@@ -3292,8 +3295,8 @@ class MainActivity : Activity() {
         searchBar.visibility = View.GONE
         projectBar.visibility = View.GONE
 
-        homeProjectTitle.text =
-            "🗂️ " + projectName
+        homeProjectTitle.text = projectName
+        setSimpleIcon(homeProjectTitle, R.drawable.ic_project_simple)
 
         renderHomeFiles()
     }
@@ -3340,7 +3343,7 @@ class MainActivity : Activity() {
         if (entries.isEmpty()) {
             val empty = TextView(this).apply {
                 text =
-                    "📁 フォルダは空です。\n\n" +
+                    "このフォルダは空です。\n\n" +
                     "「ファイル」から新しいファイルを作成できます。"
                 textSize = 15f
                 setTextColor(secondaryTextColor())
@@ -3359,12 +3362,15 @@ class MainActivity : Activity() {
 
             val row =
                 TextView(this).apply {
-                    text =
+                    text = entry.name
+                    setSimpleIcon(
+                        this,
                         if (entry.isDirectory) {
-                            "📁 " + entry.name
+                            R.drawable.ic_folder_simple
                         } else {
-                            "📄 " + entry.name
+                            R.drawable.ic_file_simple
                         }
+                    )
 
                     textSize = 17f
                     setTextColor(primaryTextColor())
@@ -3899,7 +3905,7 @@ class MainActivity : Activity() {
 
         val title =
             TextView(this).apply {
-                text = "🟢  Run OK"
+                text = "Run OK"\n                setSimpleIcon(header, R.drawable.ic_play_simple)
                 textSize = 24f
                 setTextColor(
                     Color.rgb(30, 150, 70)
@@ -4094,7 +4100,7 @@ class MainActivity : Activity() {
         val header =
             TextView(this).apply {
 
-                text = "🔴  Error"
+                text = "Error"\n                setSimpleIcon(header, R.drawable.ic_error_simple)
 
                 textSize = 22f
 
@@ -4994,7 +5000,7 @@ class MainActivity : Activity() {
                         "Characters: " +
                         source.length +
                         "\n\n" +
-                        "▶ Run でコードの基本チェックを実行できます。"
+                        "Run でコードの基本チェックを実行できます。"
                     }
 
                 textSize = 16f
@@ -5017,6 +5023,19 @@ class MainActivity : Activity() {
     }
 
     // DP
+
+    private fun setSimpleIcon(
+        view: TextView,
+        drawableId: Int
+    ) {
+        view.setCompoundDrawablesWithIntrinsicBounds(
+            drawableId,
+            0,
+            0,
+            0
+        )
+        view.compoundDrawablePadding = dpToPx(8)
+    }
 
     private fun dpToPx(
         dp: Int
