@@ -1059,28 +1059,11 @@ class MainActivity : Activity() {
         fileName: String,
         description: String
     ) {
-        val preferences = getSharedPreferences(
-            "KStudio",
-            Context.MODE_PRIVATE
+        prependHistoryEntry(
+            type = "save",
+            detail = fileName,
+            success = true
         )
-
-        val oldHistory =
-            preferences.getString("history", "") ?: ""
-
-        val time = SimpleDateFormat(
-            "yyyy-MM-dd HH:mm",
-            Locale.getDefault()
-        ).format(Date())
-
-        val entry =
-            time + "  Save  " + fileName + " : " + description + "\\n"
-
-        preferences.edit()
-            .putString(
-                "history",
-                entry + oldHistory
-            )
-            .apply()
     }
 
     // Main Menu
@@ -4154,97 +4137,123 @@ class MainActivity : Activity() {
 
     private fun renderHistoryTab() {
 
-        val preferences =
-            getSharedPreferences(
-                "KStudio",
-                Context.MODE_PRIVATE
-            )
+        val preferences = getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+        val history = preferences.getString("history", "") ?: ""
+        historyText.removeAllViews()
 
-        val history =
-            preferences.getString(
-                "history",
-                ""
-            ) ?: ""
-
-        historyText.text =
-            if (history.isBlank()) {
-                "まだ履歴はありません。\n\nRun を実行するとここに履歴が表示されます。"
-            } else {
-                history
+        if (history.isBlank()) {
+            val empty = TextView(this).apply {
+                text = "まだ履歴はありません。\n\nRun または「編集を保存」を実行するとここに履歴が表示されます。"
+                textSize = 15f
+                setTextColor(primaryTextColor())
+                setPadding(dpToPx(16), dpToPx(28), dpToPx(16), dpToPx(28))
             }
+            historyText.addView(empty)
+            return
+        }
 
-        historyText.setTextColor(
-            primaryTextColor()
-        )
+        val entries = history.split("\u001E").filter { it.isNotBlank() }
+        if (entries.isEmpty()) {
+            val legacy = TextView(this).apply {
+                text = history
+                textSize = 15f
+                setTextColor(primaryTextColor())
+                setPadding(dpToPx(16), dpToPx(16), dpToPx(16), dpToPx(16))
+            }
+            historyText.addView(legacy)
+            return
+        }
+
+        entries.forEach { raw ->
+            val fields = raw.split("\u001F")
+            if (fields.size >= 4) {
+                addHistoryCard(
+                    type = fields[0],
+                    time = fields[1],
+                    serial = fields[2],
+                    detail = fields[3],
+                    success = fields.getOrNull(4) == "success"
+                )
+            }
+        }
+    }
+
+    private fun addHistoryCard(type: String, time: String, serial: String, detail: String, success: Boolean) {
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dpToPx(16), dpToPx(14), dpToPx(16), dpToPx(14))
+            background = getDrawable(R.drawable.rounded_history_card)
+        }
+
+        val timeRow = TextView(this).apply {
+            text = "❘  $time  ${if (type == "run") "Run" else "保存"}"
+            textSize = 15f
+            setTextColor(primaryTextColor())
+        }
+        val serialRow = TextView(this).apply {
+            text = "❘  $serial"
+            textSize = 13f
+            setTextColor(secondaryTextColor())
+            setPadding(0, dpToPx(6), 0, 0)
+        }
+        val detailRow = TextView(this).apply {
+            text = if (type == "run") if (success) "❘  成功" else "❘  失敗" else "❘  $detail"
+            textSize = 14f
+            setTextColor(if (type == "run" && !success) Color.rgb(210, 70, 70) else primaryTextColor())
+            setPadding(0, dpToPx(6), 0, 0)
+        }
+        val restore = Button(this).apply {
+            text = "その時のファイルに戻す"
+            textSize = 13f
+            isEnabled = false
+            alpha = 0.55f
+            minWidth = 0
+            background = getDrawable(R.drawable.rounded_button)
+        }
+        card.addView(timeRow)
+        card.addView(serialRow)
+        card.addView(detailRow)
+        card.addView(restore, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dpToPx(42)).apply { topMargin = dpToPx(10) })
+        historyText.addView(card, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dpToPx(10) })
     }
 
     private fun clearHistory() {
 
         android.app.AlertDialog.Builder(this)
             .setTitle("履歴を削除しますか？")
-            .setMessage(
-                "実行履歴をすべて削除します。"
-            )
-            .setNegativeButton(
-                "キャンセル",
-                null
-            )
-            .setPositiveButton(
-                "削除"
-            ) { _, _ ->
-
-                getSharedPreferences(
-                    "KStudio",
-                    Context.MODE_PRIVATE
-                )
-                    .edit()
-                    .remove("history")
-                    .apply()
-
+            .setMessage("実行履歴・保存履歴をすべて削除します。")
+            .setNegativeButton("キャンセル", null)
+            .setPositiveButton("削除") { _, _ ->
+                getSharedPreferences("KStudio", Context.MODE_PRIVATE).edit().remove("history").apply()
                 renderHistoryTab()
-
-                Toast.makeText(
-                    this,
-                    "履歴を削除しました",
-                    Toast.LENGTH_SHORT
-                ).show()
+                Toast.makeText(this, "履歴を削除しました", Toast.LENGTH_SHORT).show()
             }
             .show()
     }
 
     // History Save
 
+    private fun historySerial(): String {
+        val chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+        val random = java.util.Random()
+        return buildString { repeat(7) { append(chars[random.nextInt(chars.length)]) } }
+    }
 
+    private fun prependHistoryEntry(type: String, detail: String, success: Boolean = true) {
+        val preferences = getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+        val oldHistory = preferences.getString("history", "") ?: ""
+        val time = SimpleDateFormat("yyyy/MM/dd HH:mm", Locale.getDefault()).format(Date())
+        val serial = historySerial()
+        val entry = listOf(type, time, serial, detail.replace("\u001E", "").replace("\u001F", ""), if (success) "success" else "failed").joinToString("\u001F")
+        preferences.edit().putString("history", entry + "\u001E" + oldHistory).apply()
+    }
+
+    private fun saveRunHistory(success: Boolean) {
+        prependHistoryEntry("run", "", success)
+    }
 
     private fun saveHistory() {
-
-        val preferences =
-            getSharedPreferences(
-                "KStudio",
-                Context.MODE_PRIVATE
-            )
-
-        val oldHistory =
-            preferences.getString(
-                "history",
-                ""
-            ) ?: ""
-
-        val time =
-            SimpleDateFormat(
-                "yyyy-MM-dd HH:mm",
-                Locale.getDefault()
-            ).format(Date())
-
-        val newHistory =
-            "$time  Run\n$oldHistory"
-
-        preferences.edit()
-            .putString(
-                "history",
-                newHistory
-            )
-            .apply()
+        saveRunHistory(true)
     }
 
     // History (dedicated tab)
