@@ -1673,7 +1673,7 @@ class MainActivity : Activity() {
                     DocumentsContract.Document.MIME_TYPE_DIR,
                     entry.name
                 ) ?: throw IOException("フォルダ作成に失敗しました: " + entry.name)
-                copyExternalFolder(entry.uri, target, source)
+                copyExternalFolder(entry.uri, target, treeUri)
             } else {
                 copyExternalFile(entry.uri, destination)
             }
