@@ -760,6 +760,55 @@ class MainActivity : Activity() {
         )
     }
 
+    private fun showHomeActionsMenu(anchor: View) {
+        val menu = LinearLayout(this)
+        menu.orientation = LinearLayout.VERTICAL
+        menu.setPadding(dpToPx(10), dpToPx(10), dpToPx(10), dpToPx(10))
+        menu.setBackgroundColor(surfaceColor())
+
+        val popup = PopupWindow(
+            menu,
+            dpToPx(280),
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            true
+        )
+
+        val newFile = Button(this)
+        newFile.text = "Create new file"
+        newFile.setOnClickListener {
+            folderRootUri?.let {
+                currentFolderUri = it
+                showCreateFileTab()
+            } ?: showNoFolderToast()
+            popup.dismiss()
+        }
+        menu.addView(newFile)
+
+        val newFolder = Button(this)
+        newFolder.text = "Create new folder"
+        newFolder.setOnClickListener {
+            folderRootUri?.let {
+                askCreateFolder(it) { showHomeTab() }
+            } ?: showNoFolderToast()
+            popup.dismiss()
+        }
+        menu.addView(newFolder)
+
+        val search = Button(this)
+        search.text = "🔍 Search file"
+        search.setOnClickListener {
+            showFileSearchDialog()
+            popup.dismiss()
+        }
+        menu.addView(search)
+
+        popup.showAsDropDown(
+            anchor,
+            -dpToPx(230),
+            dpToPx(4)
+        )
+    }
+
     // Main Menu
 
     private fun showMainMenu(
