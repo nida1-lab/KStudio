@@ -957,6 +957,51 @@ class MainActivity : Activity() {
         )
     }
 
+    private fun saveEditCommit() {
+        val text = saveCommitMessageInput.text.toString().trim()
+        val description =
+            if (text.isEmpty()) "編集を保存" else text
+
+        saveCurrentFile {
+            saveEditHistory(
+                currentFileName,
+                description
+            )
+            saveCommitPanel.visibility = View.GONE
+            showEditorScreen()
+        }
+    }
+
+    private fun saveEditHistory(
+        fileName: String,
+        description: String
+    ) {
+        val preferences = getSharedPreferences(
+            "KStudio",
+            Context.MODE_PRIVATE
+        )
+
+        val oldHistory =
+            preferences.getString("history", "") ?: ""
+
+        val time = SimpleDateFormat(
+            "yyyy-MM-dd HH:mm",
+            Locale.getDefault()
+        ).format(Date())
+
+        val entry =
+            "$time  Save  $fileName\\n" +
+            "$description\\n" +
+            "--------------------------------\\n"
+
+        preferences.edit()
+            .putString(
+                "history",
+                entry + oldHistory
+            )
+            .apply()
+    }
+
     // Main Menu
 
     private fun showMainMenu(
