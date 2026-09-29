@@ -918,13 +918,8 @@ class MainActivity : Activity() {
             saveRecentFolder(uri)
             updateEditorHeader()
             updateHistoryButtons()
-            showHomeTab()
 
-            Toast.makeText(
-                this,
-                "フォルダを開きました",
-                Toast.LENGTH_SHORT
-            ).show()
+            askProjectName()
         }
     }
 
