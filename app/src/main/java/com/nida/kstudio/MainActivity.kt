@@ -30,6 +30,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.regex.Pattern
+import java.io.IOException
 
 class MainActivity : Activity() {
 
@@ -109,6 +110,11 @@ class MainActivity : Activity() {
     private var currentFileUri: Uri? = null
     private var currentFileName = "新規ファイル"
     private val currentFolderStack = java.util.ArrayList<Uri>()
+
+    private companion object {
+        const val REQUEST_UPLOAD_FILE = 4101
+        const val REQUEST_UPLOAD_FOLDER = 4102
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -775,6 +781,7 @@ class MainActivity : Activity() {
 
         val newFile = Button(this)
         newFile.text = "Create new file"
+        newFile.setTextColor(primaryTextColor())
         setSimpleIcon(newFile, R.drawable.ic_file_simple)
         newFile.setOnClickListener {
             folderRootUri?.let {
@@ -787,6 +794,7 @@ class MainActivity : Activity() {
 
         val newFolder = Button(this)
         newFolder.text = "Create new folder"
+        newFolder.setTextColor(primaryTextColor())
         setSimpleIcon(newFolder, R.drawable.ic_folder_simple)
         newFolder.setOnClickListener {
             folderRootUri?.let {
@@ -796,8 +804,29 @@ class MainActivity : Activity() {
         }
         menu.addView(newFolder)
 
+        val upload = Button(this)
+        upload.text = "Upload file"
+        upload.setTextColor(primaryTextColor())
+        setSimpleIcon(upload, R.drawable.ic_file_simple)
+        upload.setOnClickListener {
+            openUploadFilePicker()
+            popup.dismiss()
+        }
+        menu.addView(upload)
+
+        val uploadFolder = Button(this)
+        uploadFolder.text = "Upload folder"
+        uploadFolder.setTextColor(primaryTextColor())
+        setSimpleIcon(uploadFolder, R.drawable.ic_folder_simple)
+        uploadFolder.setOnClickListener {
+            openUploadFolderPicker()
+            popup.dismiss()
+        }
+        menu.addView(uploadFolder)
+
         val search = Button(this)
         search.text = "Search file"
+        search.setTextColor(primaryTextColor())
         setSimpleIcon(search, R.drawable.ic_search_simple)
         search.setOnClickListener {
             showFileSearchDialog()
@@ -1065,12 +1094,15 @@ class MainActivity : Activity() {
                 true
             )
 
+        val menuTextColor = primaryTextColor()
+
     // Home
 
         val homeButton =
             Button(this).apply {
 
                 text = "Home"
+                setTextColor(menuTextColor)
 
                 setOnClickListener {
 
@@ -1094,6 +1126,7 @@ class MainActivity : Activity() {
             Button(this).apply {
 
                 text = "フォルダ"
+                setTextColor(menuTextColor)
 
                 setOnClickListener {
 
@@ -1117,6 +1150,7 @@ class MainActivity : Activity() {
             Button(this).apply {
 
                 text = "履歴"
+                setTextColor(menuTextColor)
 
                 setOnClickListener {
 
@@ -1140,6 +1174,7 @@ class MainActivity : Activity() {
             Button(this).apply {
 
                 text = "プロジェクト一覧"
+                setTextColor(menuTextColor)
 
                 setOnClickListener {
 
@@ -1163,6 +1198,7 @@ class MainActivity : Activity() {
             Button(this).apply {
 
                 text = "ファイル管理"
+                setTextColor(menuTextColor)
 
                 setOnClickListener {
 
