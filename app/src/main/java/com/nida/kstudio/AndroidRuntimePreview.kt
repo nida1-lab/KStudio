@@ -22,14 +22,14 @@ import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
-import android.widget RadioButton
+import android.widget.RadioButton
 import android.widget.ScrollView
-import android.widget SeekBar
-import android.widget Space
-import android.widget Spinner
-import android.widget Switch
-import android.widget TextView
-import android.widget ToggleButton
+import android.widget.SeekBar
+import android.widget.Space
+import android.widget.Spinner
+import android.widget.Switch
+import android.widget.TextView
+import android.widget.ToggleButton
 import java.io.InputStreamReader
 import java.util.Locale
 import org.xmlpull.v1.XmlPullParser
