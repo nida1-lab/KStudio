@@ -809,6 +809,55 @@ class MainActivity : Activity() {
         )
     }
 
+    private fun showFileSearchDialog() {
+        val input = EditText(this)
+        input.hint = "File name"
+        input.setSingleLine(true)
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Search file")
+            .setView(input)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Search") { _, _ ->
+                val keyword = input.text.toString().trim()
+                if (keyword.isEmpty()) return@setPositiveButton
+
+                val root = folderRootUri ?: return@setPositiveButton
+                val results = ArrayList<ManagedEntry>()
+
+                for (entry in queryFolder(root)) {
+                    if (!entry.isDirectory &&
+                        entry.name.contains(keyword, true)
+                    ) {
+                        results.add(entry)
+                    }
+                }
+
+                if (results.isEmpty()) {
+                    Toast.makeText(
+                        this,
+                        "No files found",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    return@setPositiveButton
+                }
+
+                val labels = ArrayList<String>()
+                for (entry in results) {
+                    labels.add("File: " + entry.name)
+                }
+
+                android.app.AlertDialog.Builder(this)
+                    .setTitle("Search results")
+                    .setItems(labels.toTypedArray()) { _, which ->
+                        val entry = results[which]
+                        openManagedFile(entry.uri, entry.name)
+                    }
+                    .show()
+            }
+            .show()
+    }
+
     // Main Menu
 
     private fun showMainMenu(
