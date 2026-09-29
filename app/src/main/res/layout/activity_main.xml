@@ -153,39 +153,130 @@
 
     </LinearLayout>
 
-    <!-- Editor -->
+    <!-- Work Area -->
 
     <LinearLayout
-        android:id="@+id/editorContainer"
+        android:id="@+id/workArea"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:orientation="horizontal">
+        android:orientation="vertical">
 
-        <com.nida.kstudio.LineNumberView
-            android:id="@+id/lineNumbers"
-            android:layout_width="45dp"
-            android:layout_height="match_parent"
-            android:background="?android:colorControlHighlight" />
-
-        <EditText
-            android:id="@+id/codeEditor"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
+        <!-- Editor -->
+        <LinearLayout
+            android:id="@+id/editorContainer"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
             android:layout_weight="1"
-            android:gravity="top|start"
-            android:fontFamily="monospace"
-            android:inputType="textMultiLine|textNoSuggestions"
-            android:padding="16dp"
-            android:background="?android:colorBackground"
-            android:hint="// Write Kotlin code..."
-            android:textSize="15sp"
-            android:includeFontPadding="false"
-            android:lineSpacingExtra="0dp"
-            android:lineSpacingMultiplier="1.0"
-            android:scrollbars="vertical"
-            android:overScrollMode="always" />
+            android:orientation="horizontal">
+            <com.nida.kstudio.LineNumberView
+                android:id="@+id/lineNumbers"
+                android:layout_width="45dp"
+                android:layout_height="match_parent"
+                android:background="?android:colorControlHighlight" />
+            <EditText
+                android:id="@+id/codeEditor"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="top|start"
+                android:fontFamily="monospace"
+                android:inputType="textMultiLine|textNoSuggestions"
+                android:padding="16dp"
+                android:background="?android:colorBackground"
+                android:hint="// Write Kotlin code..."
+                android:textSize="15sp"
+                android:includeFontPadding="false"
+                android:lineSpacingExtra="0dp"
+                android:lineSpacingMultiplier="1.0"
+                android:scrollbars="vertical"
+                android:overScrollMode="always" />
+        </LinearLayout>
 
+        <!-- Preview -->
+        <LinearLayout
+            android:id="@+id/previewArea"
+            android:layout_width="match_parent"
+            android:layout_height="180dp"
+            android:orientation="vertical">
+            <LinearLayout
+                android:id="@+id/previewHeader"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:gravity="center_vertical"
+                android:paddingStart="16dp"
+                android:paddingEnd="8dp">
+                <TextView
+                    android:id="@+id/previewTitle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Preview"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
+                <Button
+                    android:id="@+id/swapButton"
+                    android:layout_width="76dp"
+                    android:layout_height="40dp"
+                    android:text="⇅ 入替"
+                    android:minWidth="0dp"
+                    android:background="@drawable/rounded_button" />
+                <Button
+                    android:id="@+id/fullscreenButton"
+                    android:layout_width="48dp"
+                    android:layout_height="40dp"
+                    android:text="⛶"
+                    android:textSize="20sp"
+                    android:minWidth="0dp"
+                    android:background="@drawable/rounded_button" />
+            </LinearLayout>
+            <FrameLayout
+                android:id="@+id/previewContainer"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:background="?android:colorBackground" />
+        </LinearLayout>
+
+        <!-- Project Tab -->
+        <LinearLayout
+            android:id="@+id/projectTab"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:gravity="center_vertical">
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="最近のプロジェクト"
+                    android:textSize="22sp"
+                    android:textStyle="bold" />
+                <Button
+                    android:id="@+id/projectTabBackButton"
+                    android:layout_width="76dp"
+                    android:layout_height="42dp"
+                    android:text="戻る"
+                    android:minWidth="0dp"
+                    android:background="@drawable/rounded_button" />
+            </LinearLayout>
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1">
+                <LinearLayout
+                    android:id="@+id/projectList"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </ScrollView>
+        </LinearLayout>
     </LinearLayout>
 
     <!-- Bottom Header -->
@@ -245,42 +336,5 @@
             android:background="@drawable/rounded_button" />
 
     </LinearLayout>
-
-    <!-- Preview Header -->
-
-    <LinearLayout
-        android:id="@+id/previewHeader"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:gravity="center_vertical"
-        android:paddingStart="16dp"
-        android:paddingEnd="8dp">
-
-        <TextView
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Preview"
-            android:textSize="16sp"
-            android:textStyle="bold" />
-
-        <Button
-            android:id="@+id/fullscreenButton"
-            android:layout_width="48dp"
-            android:layout_height="40dp"
-            android:text="⛶"
-            android:textSize="20sp"
-            android:minWidth="0dp"
-            android:background="@drawable/rounded_button" />
-
-    </LinearLayout>
-
-    <!-- Preview -->
-
-    <FrameLayout
-        android:id="@+id/previewContainer"
-        android:layout_width="match_parent"
-        android:layout_height="180dp"
-        android:background="?android:colorBackground" />
 
 </LinearLayout>
