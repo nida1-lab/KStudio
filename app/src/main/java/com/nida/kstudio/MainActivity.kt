@@ -3394,10 +3394,6 @@ class MainActivity : Activity() {
         fileCreatePathInput.setHintTextColor(
             secondaryTextColor()
         )
-
-        historyText.setTextColor(
-            primaryTextColor()
-        )
     }
 
     // Preview Fullscreen    // Preview Fullscreen
