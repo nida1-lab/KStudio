@@ -3324,7 +3324,7 @@ class MainActivity : Activity() {
         projectBar.visibility = View.GONE
 
         homeProjectTitle.text =
-            "🗂️ " + projectName
+            projectName
 
         renderHomeFiles()
     }
