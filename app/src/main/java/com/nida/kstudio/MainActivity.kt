@@ -131,6 +131,11 @@ class MainActivity : Activity() {
                 R.id.menuButton
             )
 
+        val topHomeButton = findViewById<TextView>(R.id.topHomeButton)
+        val topFolderButton = findViewById<TextView>(R.id.topFolderButton)
+        val topHistoryButton = findViewById<TextView>(R.id.topHistoryButton)
+        val topProjectsButton = findViewById<TextView>(R.id.topProjectsButton)
+
         fullscreenButton =
             findViewById(
                 R.id.fullscreenButton
@@ -382,6 +387,24 @@ class MainActivity : Activity() {
             )
         }
 
+        // Top Navigation
+
+        topHomeButton.setOnClickListener {
+            updatePreview()
+        }
+
+        topFolderButton.setOnClickListener {
+            openFolderPicker()
+        }
+
+        topHistoryButton.setOnClickListener {
+            showHistory()
+        }
+
+        topProjectsButton.setOnClickListener {
+            showProjects()
+        }
+
         // Fullscreen
 
         fullscreenButton.setOnClickListener {
@@ -491,7 +514,7 @@ class MainActivity : Activity() {
         val popup =
             PopupWindow(
                 menu,
-                dpToPx(260),
+                dpToPx(320),
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 true
             )
@@ -613,10 +636,11 @@ class MainActivity : Activity() {
 
         popup.elevation = dpToPx(12).toFloat()
 
-        popup.showAsDropDown(
-            anchor,
+        popup.showAtLocation(
+            topMenuBar,
+            Gravity.TOP or Gravity.START,
             0,
-            0
+            topMenuBar.height
         )
     }
 
