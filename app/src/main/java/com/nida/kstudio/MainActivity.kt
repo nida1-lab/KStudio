@@ -8,6 +8,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.provider.DocumentsContract
 import android.text.Editable
 import android.text.TextWatcher
 import android.text.style.ForegroundColorSpan
@@ -45,10 +46,32 @@ class MainActivity : Activity() {
     private lateinit var bottomHeader: View
     private lateinit var previewHeader: View
     private lateinit var fullscreenButton: Button
+    private lateinit var undoButton: Button
+    private lateinit var redoButton: Button
+    private lateinit var saveButton: Button
+
+    private data class ManagedEntry(
+        val uri: Uri,
+        val name: String,
+        val mimeType: String,
+        val isDirectory: Boolean
+    )
+
+    private val undoStack = java.util.ArrayDeque<String>()
+    private val redoStack = java.util.ArrayDeque<String>()
+    private val recentFolders = mutableListOf<Uri>()
 
     private var highlighting = false
     private var autoPairing = false
+    private var historyApplying = false
+    private var isDirty = false
     private var fullscreen = false
+
+    private var folderRootUri: Uri? = null
+    private var currentFolderUri: Uri? = null
+    private var currentFileUri: Uri? = null
+    private var currentFileName = "新規ファイル"
+    private val currentFolderStack = mutableListOf<Uri>
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -113,6 +136,15 @@ class MainActivity : Activity() {
                 R.id.fullscreenButton
             )
 
+        undoButton = findViewById(R.id.undoButton)
+        redoButton = findViewById(R.id.redoButton)
+        saveButton = findViewById(R.id.saveButton)
+
+        loadRecentFolders()
+        applySystemTheme()
+        updateHistoryButtons()
+        updateEditorHeader()
+
         // Editor
 
         codeEditor.setText("")
@@ -130,6 +162,13 @@ class MainActivity : Activity() {
                     count: Int,
                     after: Int
                 ) {
+                    if (
+                        !historyApplying &&
+                        s != null &&
+                        (count > 0 || after > 0)
+                    ) {
+                        pushUndoState(s.toString())
+                    }
                 }
 
                 override fun onTextChanged(
@@ -139,6 +178,13 @@ class MainActivity : Activity() {
                     count: Int
                 ) {
                     lineNumbers.invalidate()
+
+                    if (!historyApplying) {
+                        isDirty = true
+                        updateEditorHeader()
+                    }
+
+                    updateHistoryButtons()
                 }
 
                 override fun afterTextChanged(
@@ -157,9 +203,10 @@ class MainActivity : Activity() {
             }
         )
 
-        // Auto Pair
+        // Editor Shortcuts
 
         codeEditor.setOnKeyListener { _, keyCode, event ->
+
             if (event.action != KeyEvent.ACTION_DOWN) {
                 return@setOnKeyListener false
             }
@@ -168,11 +215,20 @@ class MainActivity : Activity() {
                 return@setOnKeyListener handleDeletePair()
             }
 
+            if (keyCode == KeyEvent.KEYCODE_TAB) {
+                insertTextAtCursor("    ")
+                return@setOnKeyListener true
+            }
+
+            if (keyCode == KeyEvent.KEYCODE_ENTER) {
+                insertIndentedNewLine()
+                return@setOnKeyListener true
+            }
+
             val typed = event.unicodeChar.toChar()
             val cursor = codeEditor.selectionStart.coerceAtLeast(0)
             val next = codeEditor.text.toString().getOrNull(cursor)
 
-            // Skip existing closing character
             if (
                 (typed == '}' || typed == ')' || typed == ']' || typed == '"' || typed == '\'') &&
                 next == typed &&
@@ -197,6 +253,20 @@ class MainActivity : Activity() {
             } else {
                 false
             }
+        }
+
+        // Editor Actions
+
+        undoButton.setOnClickListener {
+            undoEditor()
+        }
+
+        redoButton.setOnClickListener {
+            redoEditor()
+        }
+
+        saveButton.setOnClickListener {
+            saveCurrentFile()
         }
 
         // Scroll
@@ -425,6 +495,29 @@ class MainActivity : Activity() {
             )
         )
 
+        // Files
+
+        val fileButton =
+            Button(this).apply {
+
+                text = "ファイル管理"
+
+                setOnClickListener {
+
+                    showFileManager()
+
+                    popup.dismiss()
+                }
+            }
+
+        menu.addView(
+            fileButton,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                52
+            )
+        )
+
         popup.elevation = 12f
 
         popup.showAsDropDown(
@@ -491,13 +584,28 @@ class MainActivity : Activity() {
             } catch (_: Exception) {
             }
 
-            val projectName =
-                getFolderName(uri)
+            folderRootUri = uri
+            currentFolderUri =
+                DocumentsContract.buildDocumentUriUsingTree(
+                    uri,
+                    DocumentsContract.getTreeDocumentId(uri)
+                )
+            currentFolderStack.clear()
+            currentFileUri = null
+            currentFileName = "新規ファイル"
+            isDirty = false
+            undoStack.clear()
+            redoStack.clear()
 
-            findViewById<TextView>(
-                R.id.projectName
-            ).text =
-                "現在編集中: $projectName"
+            saveRecentFolder(uri)
+            updateEditorHeader()
+            updateHistoryButtons()
+
+            Toast.makeText(
+                this,
+                "フォルダを開きました",
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
@@ -507,23 +615,1306 @@ class MainActivity : Activity() {
         uri: Uri
     ): String {
 
-        val path =
-            uri.path
-                ?: return "選択したフォルダ"
+        val displayName = getDocumentName(uri)
 
-        val name =
-            path.substringAfterLast(":")
+        if (displayName.isNotBlank()) {
+            return displayName
+        }
 
-        return if (
-            name.isNotEmpty()
-        ) {
+        val path = uri.path ?: return "選択したフォルダ"
+        val name = path.substringAfterLast(":")
+
+        return if (name.isNotEmpty()) {
             name
         } else {
             "選択したフォルダ"
         }
     }
 
-    // Preview Fullscreen
+    // File Manager
+
+    private fun showFileManager() {
+
+        val rootUri = folderRootUri
+
+        if (rootUri == null || currentFolderUri == null) {
+            Toast.makeText(
+                this,
+                "先にフォルダを選択してください",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
+        val root =
+            LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(16, 16, 16, 16)
+                setBackgroundColor(surfaceColor())
+            }
+
+        val title =
+            TextView(this).apply {
+                text = "ファイル管理"
+                textSize = 22f
+                setTextColor(primaryTextColor())
+            }
+
+        val pathView =
+            TextView(this).apply {
+                textSize = 13f
+                setTextColor(secondaryTextColor())
+                setPadding(0, 6, 0, 12)
+            }
+
+        val list =
+            LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+            }
+
+        val scroll =
+            android.widget.ScrollView(this).apply {
+                addView(
+                    list,
+                    ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    )
+                )
+            }
+
+        val actions =
+            LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+            }
+
+        val newFile =
+            Button(this).apply {
+                text = "新規"
+                setOnClickListener {
+                    askCreateFile(currentFolderUri!!)
+                }
+            }
+
+        val newFolder =
+            Button(this).apply {
+                text = "フォルダ"
+                setOnClickListener {
+                    askCreateFolder(currentFolderUri!!)
+                }
+            }
+
+        val upButton =
+            Button(this).apply {
+                text = "上へ"
+            }
+
+        val closeButton =
+            Button(this).apply {
+                text = "閉じる"
+            }
+
+        actions.addView(
+            newFile,
+            LinearLayout.LayoutParams(0, 50, 1f)
+        )
+        actions.addView(
+            newFolder,
+            LinearLayout.LayoutParams(0, 50, 1f)
+        )
+        actions.addView(
+            upButton,
+            LinearLayout.LayoutParams(0, 50, 1f)
+        )
+        actions.addView(
+            closeButton,
+            LinearLayout.LayoutParams(0, 50, 1f)
+        )
+
+        root.addView(title)
+        root.addView(pathView)
+        root.addView(
+            scroll,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                0,
+                1f
+            )
+        )
+        root.addView(actions)
+
+        val dialog =
+            android.app.AlertDialog.Builder(this)
+                .setView(root)
+                .create()
+
+        fun render() {
+
+            val current = currentFolderUri ?: return
+
+            pathView.text =
+                "📁 " +
+                getDocumentName(current).ifBlank {
+                    "選択したフォルダ"
+                }
+
+            list.removeAllViews()
+
+            val entries = queryFolder(current)
+
+            if (entries.isEmpty()) {
+
+                val empty =
+                    TextView(this).apply {
+                        text = "このフォルダは空です"
+                        textSize = 15f
+                        setTextColor(secondaryTextColor())
+                        setPadding(8, 20, 8, 20)
+                    }
+
+                list.addView(empty)
+            }
+
+            for (entry in entries) {
+
+                val button =
+                    Button(this).apply {
+
+                        text =
+                            if (entry.isDirectory) {
+                                "📁  " + entry.name
+                            } else {
+                                "📄  " + entry.name
+                            }
+
+                        gravity =
+                            Gravity.START or
+                            Gravity.CENTER_VERTICAL
+
+                        setAllCaps(false)
+
+                        setOnClickListener {
+
+                            if (entry.isDirectory) {
+
+                                currentFolderStack.add(current)
+                                currentFolderUri =
+                                    entry.uri
+
+                                render()
+
+                            } else {
+
+                                if (
+                                    !isSupportedTextFile(
+                                        entry.name,
+                                        entry.mimeType
+                                    )
+                                ) {
+
+                                    Toast.makeText(
+                                        this@MainActivity,
+                                        "テキストファイルではありません",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+
+                                    return@setOnClickListener
+                                }
+
+                                openManagedFile(
+                                    entry.uri,
+                                    entry.name
+                                )
+
+                                dialog.dismiss()
+                            }
+                        }
+
+                        setOnLongClickListener {
+
+                            showFileActions(
+                                entry,
+                                ::render
+                            )
+
+                            true
+                        }
+                    }
+
+                list.addView(
+                    button,
+                    LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        54
+                    )
+                )
+            }
+        }
+
+        upButton.setOnClickListener {
+
+            if (currentFolderStack.isNotEmpty()) {
+
+                currentFolderUri =
+                    currentFolderStack
+                        .removeAt(
+                            currentFolderStack.lastIndex
+                        )
+
+                render()
+
+            } else {
+
+                Toast.makeText(
+                    this,
+                    "これ以上上には移動できません",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+
+        closeButton.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        render()
+        dialog.show()
+    }
+
+    private fun queryFolder(
+        folderUri: Uri
+    ): List<ManagedEntry> {
+
+        val treeUri = folderRootUri
+            ?: return emptyList()
+
+        val parentId =
+            try {
+                DocumentsContract.getDocumentId(
+                    folderUri
+                )
+            } catch (_: Exception) {
+                DocumentsContract.getTreeDocumentId(
+                    treeUri
+                )
+            }
+
+        val childrenUri =
+            DocumentsContract.buildChildDocumentsUriUsingTree(
+                treeUri,
+                parentId
+            )
+
+        val result = mutableListOf<ManagedEntry>()
+
+        val projection =
+            arrayOf(
+                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+                DocumentsContract.Document.COLUMN_MIME_TYPE
+            )
+
+        try {
+
+            contentResolver.query(
+                childrenUri,
+                projection,
+                null,
+                null,
+                DocumentsContract.Document.COLUMN_DISPLAY_NAME +
+                    " COLLATE NOCASE ASC"
+            )?.use { cursor ->
+
+                val idIndex =
+                    cursor.getColumnIndex(
+                        DocumentsContract.Document.COLUMN_DOCUMENT_ID
+                    )
+
+                val nameIndex =
+                    cursor.getColumnIndex(
+                        DocumentsContract.Document.COLUMN_DISPLAY_NAME
+                    )
+
+                val mimeIndex =
+                    cursor.getColumnIndex(
+                        DocumentsContract.Document.COLUMN_MIME_TYPE
+                    )
+
+                while (cursor.moveToNext()) {
+
+                    val id =
+                        cursor.getString(idIndex)
+
+                    val name =
+                        cursor.getString(nameIndex)
+                            ?: "(名称なし)"
+
+                    val mime =
+                        cursor.getString(mimeIndex)
+                            ?: "application/octet-stream"
+
+                    result.add(
+                        ManagedEntry(
+                            uri =
+                                DocumentsContract
+                                    .buildDocumentUriUsingTree(
+                                        treeUri,
+                                        id
+                                    ),
+                            name = name,
+                            mimeType = mime,
+                            isDirectory =
+                                mime ==
+                                    DocumentsContract
+                                        .Document
+                                        .MIME_TYPE_DIR
+                        )
+                    )
+                }
+            }
+
+        } catch (e: Exception) {
+
+            Toast.makeText(
+                this,
+                "フォルダを読み込めませんでした: " +
+                    (e.message ?: "unknown"),
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+
+        return result
+    }
+
+    private fun openManagedFile(
+        uri: Uri,
+        name: String
+    ) {
+
+        confirmUnsavedChanges {
+
+            try {
+
+                val text =
+                    contentResolver
+                        .openInputStream(uri)
+                        ?.bufferedReader()
+                        ?.use { it.readText() }
+                        ?: ""
+
+                if (text.length > 2_000_000) {
+
+                    Toast.makeText(
+                        this,
+                        "大きすぎるファイルです",
+                        Toast.LENGTH_SHORT
+                    ).show()
+
+                    return@confirmUnsavedChanges
+                }
+
+                historyApplying = true
+                codeEditor.setText(text)
+                historyApplying = false
+
+                undoStack.clear()
+                redoStack.clear()
+
+                currentFileUri = uri
+                currentFileName = name
+                isDirty = false
+
+                updateEditorHeader()
+                updateHistoryButtons()
+                lineNumbers.invalidate()
+                highlightCode()
+
+                Toast.makeText(
+                    this,
+                    "開きました: " + name,
+                    Toast.LENGTH_SHORT
+                ).show()
+
+            } catch (e: Exception) {
+
+                historyApplying = false
+
+                Toast.makeText(
+                    this,
+                    "ファイルを開けませんでした: " +
+                        (e.message ?: "unknown"),
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+
+    private fun saveCurrentFile(
+        onComplete: (() -> Unit)? = null
+    ) {
+
+        val uri = currentFileUri
+
+        if (uri == null) {
+
+            Toast.makeText(
+                this,
+                "保存先ファイルがありません",
+                Toast.LENGTH_SHORT
+            ).show()
+
+            onComplete?.invoke()
+            return
+        }
+
+        try {
+
+            contentResolver
+                .openOutputStream(uri, "wt")
+                ?.use { stream ->
+
+                    stream.write(
+                        codeEditor.text
+                            .toString()
+                            .toByteArray(Charsets.UTF_8)
+                    )
+                }
+                ?: throw IllegalStateException(
+                    "保存先を開けません"
+                )
+
+            isDirty = false
+            updateEditorHeader()
+
+            Toast.makeText(
+                this,
+                "保存しました",
+                Toast.LENGTH_SHORT
+            ).show()
+
+            onComplete?.invoke()
+
+        } catch (e: Exception) {
+
+            Toast.makeText(
+                this,
+                "保存に失敗しました: " +
+                    (e.message ?: "unknown"),
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    private fun askCreateFile(
+        folderUri: Uri
+    ) {
+
+        val input =
+            EditText(this).apply {
+                hint = "例: MainActivity.kt"
+                setSingleLine(true)
+                setText("Main.kt")
+                selectAll()
+            }
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle("新しいファイル")
+            .setView(input)
+            .setNegativeButton(
+                "キャンセル",
+                null
+            )
+            .setPositiveButton(
+                "作成"
+            ) { _, _ ->
+
+                val name =
+                    input.text
+                        .toString()
+                        .trim()
+
+                if (name.isEmpty()) {
+                    return@setPositiveButton
+                }
+
+                confirmUnsavedChanges {
+                    createManagedFile(
+                        folderUri,
+                        name
+                    )
+                }
+            }
+            .show()
+    }
+
+    private fun askCreateFolder(
+        folderUri: Uri
+    ) {
+
+        val input =
+            EditText(this).apply {
+                hint = "フォルダ名"
+                setSingleLine(true)
+                setText("NewFolder")
+                selectAll()
+            }
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle("新しいフォルダ")
+            .setView(input)
+            .setNegativeButton(
+                "キャンセル",
+                null
+            )
+            .setPositiveButton(
+                "作成"
+            ) { _, _ ->
+
+                val name =
+                    input.text
+                        .toString()
+                        .trim()
+
+                if (name.isEmpty()) {
+                    return@setPositiveButton
+                }
+
+                try {
+
+                    DocumentsContract.createDocument(
+                        contentResolver,
+                        folderUri,
+                        DocumentsContract.Document.MIME_TYPE_DIR,
+                        name
+                    )
+
+                    Toast.makeText(
+                        this,
+                        "フォルダを作成しました",
+                        Toast.LENGTH_SHORT
+                    ).show()
+
+                } catch (_: Exception) {
+
+                    Toast.makeText(
+                        this,
+                        "フォルダ作成に失敗しました",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+            .show()
+    }
+
+    private fun createManagedFile(
+        folderUri: Uri,
+        name: String
+    ) {
+
+        try {
+
+            val mime =
+                mimeTypeForFile(name)
+
+            val uri =
+                DocumentsContract.createDocument(
+                    contentResolver,
+                    folderUri,
+                    mime,
+                    name
+                )
+                    ?: throw IllegalStateException(
+                        "ファイル作成に失敗しました"
+                    )
+
+            historyApplying = true
+            codeEditor.setText("")
+            historyApplying = false
+
+            undoStack.clear()
+            redoStack.clear()
+
+            currentFileUri = uri
+            currentFileName = name
+            isDirty = false
+
+            updateEditorHeader()
+            updateHistoryButtons()
+            highlightCode()
+            lineNumbers.invalidate()
+
+            Toast.makeText(
+                this,
+                "作成しました: " + name,
+                Toast.LENGTH_SHORT
+            ).show()
+
+        } catch (e: Exception) {
+
+            historyApplying = false
+
+            Toast.makeText(
+                this,
+                "ファイル作成に失敗しました: " +
+                    (e.message ?: "unknown"),
+                Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    private fun showFileActions(
+        entry: ManagedEntry,
+        refresh: () -> Unit
+    ) {
+
+        val options =
+            arrayOf(
+                "名前変更",
+                "削除",
+                "キャンセル"
+            )
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle(entry.name)
+            .setItems(options) { _, which ->
+
+                when (which) {
+
+                    0 -> askRename(
+                        entry,
+                        refresh
+                    )
+
+                    1 -> askDelete(
+                        entry,
+                        refresh
+                    )
+                }
+            }
+            .show()
+    }
+
+    private fun askRename(
+        entry: ManagedEntry,
+        refresh: () -> Unit
+    ) {
+
+        val input =
+            EditText(this).apply {
+                setSingleLine(true)
+                setText(entry.name)
+                selectAll()
+            }
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle("名前変更")
+            .setView(input)
+            .setNegativeButton(
+                "キャンセル",
+                null
+            )
+            .setPositiveButton(
+                "変更"
+            ) { _, _ ->
+
+                val newName =
+                    input.text
+                        .toString()
+                        .trim()
+
+                if (newName.isEmpty()) {
+                    return@setPositiveButton
+                }
+
+                try {
+
+                    DocumentsContract.renameDocument(
+                        contentResolver,
+                        entry.uri,
+                        newName
+                    )
+
+                    if (currentFileUri == entry.uri) {
+                        currentFileName = newName
+                        updateEditorHeader()
+                    }
+
+                    refresh()
+
+                } catch (_: Exception) {
+
+                    Toast.makeText(
+                        this,
+                        "名前変更に失敗しました",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+            .show()
+    }
+
+    private fun askDelete(
+        entry: ManagedEntry,
+        refresh: () -> Unit
+    ) {
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle("削除しますか？")
+            .setMessage(entry.name)
+            .setNegativeButton(
+                "キャンセル",
+                null
+            )
+            .setPositiveButton(
+                "削除"
+            ) { _, _ ->
+
+                confirmUnsavedChanges {
+
+                    try {
+
+                        DocumentsContract.deleteDocument(
+                            contentResolver,
+                            entry.uri
+                        )
+
+                        if (currentFileUri == entry.uri) {
+
+                            historyApplying = true
+                            codeEditor.setText("")
+                            historyApplying = false
+
+                            currentFileUri = null
+                            currentFileName = "新規ファイル"
+                            isDirty = false
+
+                            undoStack.clear()
+                            redoStack.clear()
+
+                            updateEditorHeader()
+                            updateHistoryButtons()
+                        }
+
+                        refresh()
+
+                    } catch (_: Exception) {
+
+                        Toast.makeText(
+                            this,
+                            "削除に失敗しました",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            }
+            .show()
+    }
+
+    private fun confirmUnsavedChanges(
+        onContinue: () -> Unit
+    ) {
+
+        if (!isDirty) {
+            onContinue()
+            return
+        }
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle("未保存の変更")
+            .setMessage(
+                "変更内容を保存してから続行しますか？"
+            )
+            .setNegativeButton(
+                "破棄"
+            ) { _, _ ->
+                isDirty = false
+                onContinue()
+            }
+            .setNeutralButton(
+                "キャンセル",
+                null
+            )
+            .setPositiveButton(
+                "保存"
+            ) { _, _ ->
+                saveCurrentFile(
+                    onComplete = onContinue
+                )
+            }
+            .show()
+    }
+
+    private fun getDocumentName(
+        uri: Uri
+    ): String {
+
+        try {
+
+            val projection =
+                arrayOf(
+                    DocumentsContract.Document.COLUMN_DISPLAY_NAME
+                )
+
+            contentResolver.query(
+                uri,
+                projection,
+                null,
+                null,
+                null
+            )?.use { cursor ->
+
+                if (cursor.moveToFirst()) {
+
+                    val index =
+                        cursor.getColumnIndex(
+                            DocumentsContract.Document.COLUMN_DISPLAY_NAME
+                        )
+
+                    if (index >= 0) {
+                        return cursor.getString(index)
+                            ?: ""
+                    }
+                }
+            }
+
+        } catch (_: Exception) {
+        }
+
+        return ""
+    }
+
+    private fun isSupportedTextFile(
+        name: String,
+        mimeType: String
+    ): Boolean {
+
+        if (mimeType.startsWith("text/")) {
+            return true
+        }
+
+        val lower =
+            name.lowercase(Locale.getDefault())
+
+        return lower.endsWith(".kt") ||
+            lower.endsWith(".kts") ||
+            lower.endsWith(".java") ||
+            lower.endsWith(".xml") ||
+            lower.endsWith(".json") ||
+            lower.endsWith(".txt") ||
+            lower.endsWith(".md") ||
+            lower.endsWith(".gradle") ||
+            lower.endsWith(".properties") ||
+            lower.endsWith(".yml") ||
+            lower.endsWith(".yaml") ||
+            lower.endsWith(".html") ||
+            lower.endsWith(".css") ||
+            lower.endsWith(".js")
+    }
+
+    private fun mimeTypeForFile(
+        name: String
+    ): String {
+
+        val lower =
+            name.lowercase(Locale.getDefault())
+
+        return when {
+
+            lower.endsWith(".xml") ->
+                "text/xml"
+
+            lower.endsWith(".json") ->
+                "application/json"
+
+            lower.endsWith(".html") ->
+                "text/html"
+
+            lower.endsWith(".css") ->
+                "text/css"
+
+            lower.endsWith(".js") ->
+                "text/javascript"
+
+            else ->
+                "text/plain"
+        }
+    }
+
+    // Recent Folders
+
+    private fun loadRecentFolders() {
+
+        val preferences =
+            getSharedPreferences(
+                "KStudio",
+                Context.MODE_PRIVATE
+            )
+
+        val raw =
+            preferences.getString(
+                "recentFolders",
+                ""
+            )
+                ?: ""
+
+        recentFolders.clear()
+
+        for (value in raw.split("|")) {
+
+            if (value.isBlank()) continue
+
+            recentFolders.add(
+                Uri.parse(value)
+            )
+        }
+
+        val savedRoot =
+            preferences.getString(
+                "currentFolder",
+                null
+            )
+
+        if (savedRoot != null) {
+
+            try {
+
+                val uri =
+                    Uri.parse(savedRoot)
+
+                folderRootUri = uri
+                currentFolderUri =
+                    DocumentsContract.buildDocumentUriUsingTree(
+                        uri,
+                        DocumentsContract.getTreeDocumentId(uri)
+                    )
+
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    private fun saveRecentFolder(
+        uri: Uri
+    ) {
+
+        recentFolders.removeAll {
+            it == uri
+        }
+
+        recentFolders.add(
+            0,
+            uri
+        )
+
+        while (recentFolders.size > 8) {
+            recentFolders.removeAt(
+                recentFolders.lastIndex
+            )
+        }
+
+        val preferences =
+            getSharedPreferences(
+                "KStudio",
+                Context.MODE_PRIVATE
+            )
+
+        preferences.edit()
+            .putString(
+                "currentFolder",
+                uri.toString()
+            )
+            .putString(
+                "recentFolders",
+                recentFolders.joinToString("|") {
+                    it.toString()
+                }
+            )
+            .apply()
+    }
+
+    // Editor History
+
+    private fun pushUndoState(
+        text: String
+    ) {
+
+        if (
+            undoStack.isNotEmpty() &&
+            undoStack.peekLast() == text
+        ) {
+            return
+        }
+
+        undoStack.addLast(text)
+
+        while (undoStack.size > 100) {
+            undoStack.removeFirst()
+        }
+
+        redoStack.clear()
+    }
+
+    private fun undoEditor() {
+
+        if (undoStack.isEmpty()) {
+            return
+        }
+
+        val current =
+            codeEditor.text
+                .toString()
+
+        val target =
+            undoStack.removeLast()
+
+        redoStack.addLast(current)
+
+        historyApplying = true
+        codeEditor.setText(target)
+        historyApplying = false
+
+        codeEditor.setSelection(
+            target.length
+        )
+
+        isDirty = true
+        updateEditorHeader()
+        updateHistoryButtons()
+        highlightCode()
+        lineNumbers.invalidate()
+    }
+
+    private fun redoEditor() {
+
+        if (redoStack.isEmpty()) {
+            return
+        }
+
+        val current =
+            codeEditor.text
+                .toString()
+
+        val target =
+            redoStack.removeLast()
+
+        undoStack.addLast(current)
+
+        historyApplying = true
+        codeEditor.setText(target)
+        historyApplying = false
+
+        codeEditor.setSelection(
+            target.length
+        )
+
+        isDirty = true
+        updateEditorHeader()
+        updateHistoryButtons()
+        highlightCode()
+        lineNumbers.invalidate()
+    }
+
+    private fun updateHistoryButtons() {
+
+        if (!::undoButton.isInitialized) {
+            return
+        }
+
+        undoButton.isEnabled =
+            undoStack.isNotEmpty()
+
+        redoButton.isEnabled =
+            redoStack.isNotEmpty()
+    }
+
+    private fun insertTextAtCursor(
+        text: String
+    ) {
+
+        val start =
+            codeEditor.selectionStart
+                .coerceAtLeast(0)
+
+        val end =
+            codeEditor.selectionEnd
+                .coerceAtLeast(0)
+
+        autoPairing = true
+
+        codeEditor.text.replace(
+            start,
+            end,
+            text
+        )
+
+        autoPairing = false
+
+        codeEditor.setSelection(
+            (start + text.length)
+                .coerceAtMost(codeEditor.length())
+        )
+
+        highlightCode()
+        lineNumbers.invalidate()
+    }
+
+    private fun insertIndentedNewLine() {
+
+        val cursor =
+            codeEditor.selectionStart
+                .coerceAtLeast(0)
+
+        val text =
+            codeEditor.text
+                .toString()
+
+        val lineStart =
+            text.lastIndexOf(
+                "
+",
+                (cursor - 1).coerceAtLeast(0)
+            ) + 1
+
+        val linePrefix =
+            text.substring(
+                lineStart,
+                cursor.coerceAtMost(text.length)
+            )
+
+        val indentation =
+            Regex("^\\s*")
+                .find(linePrefix)
+                ?.value
+                ?: ""
+
+        val trimmed =
+            linePrefix.trimEnd()
+
+        val extra =
+            if (trimmed.endsWith("{")) {
+                "    "
+            } else {
+                ""
+            }
+
+        insertTextAtCursor(
+            "
+" +
+                indentation +
+                extra
+        )
+    }
+
+    private fun updateEditorHeader() {
+
+        if (!::codeEditor.isInitialized) {
+            return
+        }
+
+        val prefix =
+            if (isDirty) "● " else ""
+
+        val folderName =
+            folderRootUri?.let {
+                getFolderName(it)
+            }?.takeIf {
+                it.isNotBlank()
+            } ?: "フォルダ未選択"
+
+        findViewById<TextView>(
+            R.id.projectName
+        ).text =
+            prefix +
+                folderName +
+                " / " +
+                currentFileName
+    }
+
+    private fun isDarkMode(): Boolean {
+
+        val mode =
+            resources.configuration.uiMode and
+                android.content.res.Configuration
+                    .UI_MODE_NIGHT_MASK
+
+        return mode ==
+            android.content.res.Configuration
+                .UI_MODE_NIGHT_YES
+    }
+
+    private fun surfaceColor(): Int =
+        if (isDarkMode()) {
+            Color.rgb(28, 28, 30)
+        } else {
+            Color.WHITE
+        }
+
+    private fun editorSurfaceColor(): Int =
+        if (isDarkMode()) {
+            Color.rgb(20, 20, 22)
+        } else {
+            Color.rgb(245, 245, 245)
+        }
+
+    private fun lineNumberSurfaceColor(): Int =
+        if (isDarkMode()) {
+            Color.rgb(36, 36, 38)
+        } else {
+            Color.rgb(238, 238, 238)
+        }
+
+    private fun previewSurfaceColor(): Int =
+        if (isDarkMode()) {
+            Color.rgb(24, 24, 26)
+        } else {
+            Color.rgb(250, 250, 250)
+        }
+
+    private fun primaryTextColor(): Int =
+        if (isDarkMode()) {
+            Color.WHITE
+        } else {
+            Color.BLACK
+        }
+
+    private fun secondaryTextColor(): Int =
+        if (isDarkMode()) {
+            Color.LTGRAY
+        } else {
+            Color.DKGRAY
+        }
+
+    private fun applySystemTheme() {
+
+        findViewById<View>(
+            android.R.id.content
+        ).setBackgroundColor(
+            surfaceColor()
+        )
+
+        codeEditor.setTextColor(
+            primaryTextColor()
+        )
+
+        codeEditor.setHintTextColor(
+            secondaryTextColor()
+        )
+
+        codeEditor.setBackgroundColor(
+            editorSurfaceColor()
+        )
+
+        lineNumbers.setBackgroundColor(
+            lineNumberSurfaceColor()
+        )
+
+        previewContainer.setBackgroundColor(
+            previewSurfaceColor()
+        )
+    }
+
+    // Preview Fullscreen    // Preview Fullscreen
 
     private fun togglePreviewFullscreen() {
 
@@ -599,20 +1990,238 @@ class MainActivity : Activity() {
 
         saveHistory()
 
-        Toast.makeText(
-            this,
-            "RUN TEST",
-            Toast.LENGTH_SHORT
-        ).show()
+        val source =
+            codeEditor.text
+                .toString()
 
-        showError(
-            line = 10,
-            code = "K001",
-            fileName = "MainActivity.kt",
-            message =
-                "Kotlinコードに問題があります。",
-            source = "KStudio"
-        )
+        val error =
+            validateCode(source)
+
+        if (error != null) {
+
+            showError(
+                line = error.first,
+                code = "K001",
+                fileName = currentFileName,
+                message = error.second,
+                source = "KStudio"
+            )
+
+            return
+        }
+
+        showRunSuccess(source)
+    }
+
+    private fun validateCode(
+        source: String
+    ): Pair<Int, String>? {
+
+        val stack =
+            mutableListOf<Pair<Char, Int>>()
+
+        var line = 1
+        var inString = false
+        var inChar = false
+        var escaped = false
+        var inLineComment = false
+        var index = 0
+
+        while (index < source.length) {
+
+            val ch = source[index]
+            val next = source.getOrNull(index + 1)
+
+            if (ch == '
+') {
+
+                line++
+                inLineComment = false
+
+                if (inString || inChar) {
+                    return (line - 1) to
+                        "文字列または文字リテラルが閉じられていません。"
+                }
+
+                index++
+                continue
+            }
+
+            if (inLineComment) {
+                index++
+                continue
+            }
+
+            if (
+                !inString &&
+                !inChar &&
+                ch == '/' &&
+                next == '/'
+            ) {
+                inLineComment = true
+                index += 2
+                continue
+            }
+
+            if (!inChar && ch == '"' && !escaped) {
+                inString = !inString
+                index++
+                continue
+            }
+
+            if (!inString && ch == ''' && !escaped) {
+                inChar = !inChar
+                index++
+                continue
+            }
+
+            if (
+                (inString || inChar) &&
+                ch == '\\' &&
+                !escaped
+            ) {
+                escaped = true
+                index++
+                continue
+            }
+
+            if (inString || inChar) {
+                escaped = false
+                index++
+                continue
+            }
+
+            when (ch) {
+
+                '{', '(', '[' -> {
+                    stack.add(ch to line)
+                }
+
+                '}', ')', ']' -> {
+
+                    if (stack.isEmpty()) {
+                        return line to
+                            "閉じ括弧 " +
+                            ch +
+                            " に対応する開き括弧がありません。"
+                    }
+
+                    val expected =
+                        when (stack.last().first) {
+                            '{' -> '}'
+                            '(' -> ')'
+                            else -> ']'
+                        }
+
+                    if (expected != ch) {
+                        return line to
+                            "括弧の対応が正しくありません。期待: " +
+                            expected +
+                            " / 実際: " +
+                            ch
+                    }
+
+                    stack.removeAt(
+                        stack.lastIndex
+                    )
+                }
+            }
+
+            escaped = false
+            index++
+        }
+
+        if (inString || inChar) {
+            return line to
+                "文字列または文字リテラルが閉じられていません。"
+        }
+
+        if (stack.isNotEmpty()) {
+
+            val open = stack.last()
+
+            val expected =
+                when (open.first) {
+                    '{' -> '}'
+                    '(' -> ')'
+                    else -> ']'
+                }
+
+            return open.second to
+                "開き括弧 " +
+                open.first +
+                " が閉じられていません。期待: " +
+                expected
+        }
+
+        return null
+    }
+
+    private fun showRunSuccess(
+        source: String
+    ) {
+
+        if (fullscreen) {
+            togglePreviewFullscreen()
+        }
+
+        previewContainer.removeAllViews()
+
+        val root =
+            LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(20, 20, 20, 20)
+            }
+
+        val title =
+            TextView(this).apply {
+                text = "🟢  Run OK"
+                textSize = 24f
+                setTextColor(
+                    Color.rgb(30, 150, 70)
+                )
+            }
+
+        val info =
+            TextView(this).apply {
+                text =
+                    "KStudio static check
+
+" +
+                    "ファイル: " +
+                    currentFileName +
+                    "
+行数: " +
+                    source.lines().size +
+                    "
+文字数: " +
+                    source.length +
+                    "
+
+" +
+                    "括弧・文字列の基本チェックに成功しました。
+" +
+                    "実際のAndroid APKビルドはGitHub Actions側で実行します。"
+                textSize = 15f
+                setTextColor(
+                    primaryTextColor()
+                )
+                setPadding(0, 16, 0, 16)
+            }
+
+        val back =
+            Button(this).apply {
+                text = "Previewに戻る"
+                setOnClickListener {
+                    updatePreview()
+                }
+            }
+
+        root.addView(title)
+        root.addView(info)
+        root.addView(back)
+
+        previewContainer.addView(root)
     }
 
     // History Save
@@ -1523,7 +3132,7 @@ class MainActivity : Activity() {
 
         editable.setSpan(
             ForegroundColorSpan(
-                Color.BLACK
+                primaryTextColor()
             ),
             0,
             editable.length,
@@ -1642,24 +3251,47 @@ class MainActivity : Activity() {
 
         previewContainer.removeAllViews()
 
+        val source =
+            codeEditor.text
+                .toString()
+
         val preview =
             TextView(this).apply {
 
                 text =
-                    if (
-                        codeEditor.text.isEmpty()
-                    ) {
+                    if (source.isEmpty()) {
 
-                        "KStudio is ready."
+                        "KStudio is ready.
+
+" +
+                        "ファイルを開くか、コードを書いてください。"
 
                     } else {
 
-                        "KStudio is running!\n\n" +
-                        "Code length: " +
-                        codeEditor.text.length
+                        "KStudio Preview
+
+" +
+                        "File: " +
+                        currentFileName +
+                        "
+" +
+                        "Lines: " +
+                        source.lines().size +
+                        "
+" +
+                        "Characters: " +
+                        source.length +
+                        "
+
+" +
+                        "▶ Run でコードの基本チェックを実行できます。"
                     }
 
                 textSize = 16f
+
+                setTextColor(
+                    primaryTextColor()
+                )
 
                 setPadding(
                     24,
