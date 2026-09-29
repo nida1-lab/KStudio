@@ -95,6 +95,7 @@ class MainActivity : Activity() {
     private var isDirty = false
     private var fullscreen = false
     private var editorPreviewSwapped = false
+    private var projectName = "App"
 
     private var folderRootUri: Uri? = null
     private var currentFolderUri: Uri? = null
@@ -573,6 +574,12 @@ class MainActivity : Activity() {
                     false
                 )
 
+            projectName =
+                savedInstanceState.getString(
+                    "projectName",
+                    projectName
+                ) ?: "App"
+
             updateEditorHeader()
             updateHistoryButtons()
         }
@@ -607,6 +614,11 @@ class MainActivity : Activity() {
         outState.putBoolean(
             "editorPreviewSwapped",
             editorPreviewSwapped
+        )
+
+        outState.putString(
+            "projectName",
+            projectName
         )
 
         super.onSaveInstanceState(
@@ -828,16 +840,112 @@ class MainActivity : Activity() {
                     return@setPositiveButton
                 }
 
-                homeProjectTitle.text = "🗂️ $name"
-                showHomeTab()
+                projectName = name
 
-                Toast.makeText(
-                    this,
-                    "「$name」を開始しました",
-                    Toast.LENGTH_SHORT
-                ).show()
+                createInitialProjectFile {
+                    showHomeTab()
+
+                    Toast.makeText(
+                        this,
+                        "「$name」を開始しました",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
             .show()
+    }
+
+    private fun createInitialProjectFile(
+        onReady: () -> Unit
+    ) {
+
+        val root =
+            currentFolderUri
+                ?: run {
+                    onReady()
+                    return
+                }
+
+        val existing =
+            findChildByName(
+                root,
+                "MainActivity.kt"
+            )
+
+        if (existing != null) {
+            if (existing.isDirectory) {
+                Toast.makeText(
+                    this,
+                    "MainActivity.kt というフォルダが既にあります",
+                    Toast.LENGTH_LONG
+                ).show()
+                onReady()
+                return
+            }
+
+            openManagedFile(
+                existing.uri,
+                existing.name
+            )
+            onReady()
+            return
+        }
+
+        try {
+
+            val fileUri =
+                DocumentsContract.createDocument(
+                    contentResolver,
+                    root,
+                    "text/plain",
+                    "MainActivity.kt"
+                ) ?: throw IllegalStateException(
+                    "MainActivity.kt を作成できませんでした"
+                )
+
+            val starter =
+                "package com.example.app\n\n" +
+                "import android.app.Activity\n" +
+                "import android.os.Bundle\n\n" +
+                "class MainActivity : Activity() {\n\n" +
+                "    override fun onCreate(savedInstanceState: Bundle?) {\n" +
+                "        super.onCreate(savedInstanceState)\n" +
+                "    }\n" +
+                "}\n"
+
+            contentResolver
+                .openOutputStream(
+                    fileUri,
+                    "wt"
+                )
+                ?.use { stream ->
+                    stream.write(
+                        starter.toByteArray(
+                            Charsets.UTF_8
+                        )
+                    )
+                }
+                ?: throw IllegalStateException(
+                    "初期ファイルを書き込めませんでした"
+                )
+
+            currentFileUri = null
+            currentFileName = "新規ファイル"
+            isDirty = false
+
+            onReady()
+
+        } catch (e: Exception) {
+
+            Toast.makeText(
+                this,
+                "初期ファイル作成に失敗しました: " +
+                    (e.message ?: "unknown"),
+                Toast.LENGTH_LONG
+            ).show()
+
+            onReady()
+        }
     }
 
     // Folder Picker
@@ -2758,11 +2866,7 @@ class MainActivity : Activity() {
         projectBar.visibility = View.GONE
 
         homeProjectTitle.text =
-            if (folderRootUri == null) {
-                "🗂️ App"
-            } else {
-                "🗂️ " + getFolderName(folderRootUri!!)
-            }
+            "🗂️ " + projectName
 
         renderHomeFiles()
     }
@@ -2789,7 +2893,7 @@ class MainActivity : Activity() {
         projectBar.visibility = View.GONE
 
         homeProjectTitle.text =
-            "🗂️ " + getFolderName(folderRootUri!!)
+            "🗂️ " + projectName
 
         renderHomeFiles()
     }
@@ -2888,22 +2992,6 @@ class MainActivity : Activity() {
 
         currentFolderUri = uri
         showHomeTab()
-    }
-
-    private fun swapEditorAndPreview() {
-
-        if (
-            fullscreen ||
-            homeTab.visibility == View.VISIBLE ||
-            projectTab.visibility == View.VISIBLE ||
-            fileTab.visibility == View.VISIBLE ||
-            historyTab.visibility == View.VISIBLE
-        ) {
-            return
-        }
-
-        editorPreviewSwapped = !editorPreviewSwapped
-        applyEditorPreviewOrder()
     }
 
     private fun swapEditorAndPreview() {
