@@ -59,7 +59,7 @@ class MainActivity : Activity() {
 
     private val undoStack = java.util.ArrayDeque<String>()
     private val redoStack = java.util.ArrayDeque<String>()
-    private val recentFolders = mutableListOf<Uri>()
+    private val recentFolders = java.util.ArrayList<Uri>()
 
     private var highlighting = false
     private var autoPairing = false
