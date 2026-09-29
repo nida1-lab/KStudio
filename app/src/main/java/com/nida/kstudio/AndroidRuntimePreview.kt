@@ -1130,8 +1130,16 @@ class AndroidRuntimePreview(
         }
 
         attrs["gravity"]?.let {
-            view.gravity =
+            val gravity =
                 parseGravity(it)
+
+            when (view) {
+                is LinearLayout ->
+                    view.gravity = gravity
+
+                is TextView ->
+                    view.gravity = gravity
+            }
         }
 
         if (
