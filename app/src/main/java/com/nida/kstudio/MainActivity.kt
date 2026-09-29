@@ -3,6 +3,7 @@ package com.nida.kstudio
 import android.app.Activity
 import android.os.Bundle
 import android.graphics.Color
+import android.graphics.drawable.GradientDrawable
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -87,6 +88,8 @@ class MainActivity : Activity() {
     private lateinit var saveCommitButton: Button
     private lateinit var saveCommitCancelButton: Button
     private var imagePathPopup: PopupWindow? = null
+    private var searchSuggestionsPopup: PopupWindow? = null
+    private lateinit var fileCreateHiddenButton: Button
 
     private data class ManagedEntry(
         val uri: Uri,
@@ -101,10 +104,12 @@ class MainActivity : Activity() {
 
     private var highlighting = false
     private var autoPairing = false
+    private var autoPairingEnabled = true
     private var historyApplying = false
     private var isDirty = false
     private var fullscreen = false
     private var editorPreviewSwapped = false
+    private var swapAnimating = false
     private var projectName = "App"
 
     private var folderRootUri: Uri? = null
@@ -235,6 +240,7 @@ class MainActivity : Activity() {
                     "App"
                 ) ?: "App"
 
+        loadEditorSettings()
         applySystemTheme()
         updateHistoryButtons()
         updateEditorHeader()
@@ -337,7 +343,7 @@ class MainActivity : Activity() {
             }
 
             if (keyCode == KeyEvent.KEYCODE_TAB) {
-                insertTextAtCursor("    ")
+                insertTextAtCursor(" ".repeat(getTabWidth()))
                 return@setOnKeyListener true
             }
 
@@ -351,6 +357,7 @@ class MainActivity : Activity() {
             val next = codeEditor.text.toString().getOrNull(cursor)
 
             if (
+                autoPairingEnabled &&
                 (typed == '}' || typed == ')' || typed == ']' || typed == '"' || typed == '\'') &&
                 next == typed &&
                 codeEditor.selectionStart == codeEditor.selectionEnd
@@ -359,18 +366,22 @@ class MainActivity : Activity() {
                 return@setOnKeyListener true
             }
 
-            val pair = when (typed) {
-                '{' -> '}'
-                '(' -> ')'
-                '[' -> ']'
-                '"' -> '"'
-                '\'' -> '\''
-                else -> null
-            }
+            if (autoPairingEnabled) {
+                val pair = when (typed) {
+                    '{' -> '}'
+                    '(' -> ')'
+                    '[' -> ']'
+                    '"' -> '"'
+                    '\'' -> '\''
+                    else -> null
+                }
 
-            if (pair != null) {
-                insertPair(typed, pair)
-                true
+                if (pair != null) {
+                    insertPair(typed, pair)
+                    true
+                } else {
+                    false
+                }
             } else {
                 false
             }
@@ -382,6 +393,16 @@ class MainActivity : Activity() {
                 override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
                 override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                     showImagePathSuggestionsIfNeeded()
+                }
+                override fun afterTextChanged(s: Editable?) {}
+            }
+        )
+
+        searchInput.addTextChangedListener(
+            object : TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                    showSearchSuggestionsIfNeeded()
                 }
                 override fun afterTextChanged(s: Editable?) {}
             }
@@ -452,7 +473,94 @@ class MainActivity : Activity() {
             }
         }
 
-        // Line Jump
+        private fun showSearchSuggestionsIfNeeded() {
+        if (!isSearchSuggestionsEnabled()) {
+            hideSearchSuggestions()
+            return
+        }
+
+        val query = searchInput.text.toString().trim()
+        if (query.isEmpty()) {
+            hideSearchSuggestions()
+            return
+        }
+
+        val words = Regex("[A-Za-z_][A-Za-z0-9_]{2,}")
+            .findAll(codeEditor.text.toString())
+            .map { it.value }
+            .filter { it.contains(query, ignoreCase = true) }
+            .distinct()
+            .take(8)
+            .toList()
+
+        if (words.isEmpty()) {
+            hideSearchSuggestions()
+            return
+        }
+
+        hideSearchSuggestions()
+
+        val list = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(
+                dpToPx(6),
+                dpToPx(6),
+                dpToPx(6),
+                dpToPx(6)
+            )
+            background = roundedBackground(surfaceColor(), 12)
+        }
+
+        words.forEach { word ->
+            val item = Button(this).apply {
+                text = word
+                textSize = 14f
+                gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                styleKStudioButton(this)
+                setOnClickListener {
+                    searchInput.setText(word)
+                    searchInput.setSelection(word.length)
+                    hideSearchSuggestions()
+                }
+            }
+            list.addView(
+                item,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    dpToPx(42)
+                )
+            )
+        }
+
+        searchSuggestionsPopup = PopupWindow(
+            list,
+            minOf(
+                dpToPx(320),
+                resources.displayMetrics.widthPixels - dpToPx(24)
+            ),
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            true
+        ).apply {
+            isOutsideTouchable = true
+            elevation = dpToPx(8).toFloat()
+            setBackgroundDrawable(
+                android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)
+            )
+        }
+
+        searchSuggestionsPopup?.showAsDropDown(
+            searchInput,
+            0,
+            dpToPx(4)
+        )
+    }
+
+    private fun hideSearchSuggestions() {
+        searchSuggestionsPopup?.dismiss()
+        searchSuggestionsPopup = null
+    }
+
+    // Line Jump
 
         lineButton.setOnClickListener {
 
@@ -1063,7 +1171,8 @@ class MainActivity : Activity() {
         prependHistoryEntry(
             type = "save",
             detail = fileName,
-            success = true
+            success = true,
+            extra = description
         )
     }
 
@@ -1071,12 +1180,33 @@ class MainActivity : Activity() {
 
     private fun showMainMenu(anchor: View) {
         val root = FrameLayout(this)
-        root.setBackgroundColor(surfaceColor())
+
+        val scrim = View(this).apply {
+            setBackgroundColor(Color.argb(105, 0, 0, 0))
+            alpha = 0f
+        }
+        root.addView(
+            scrim,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
+
+        val panelWidth = minOf(
+            dpToPx(340),
+            resources.displayMetrics.widthPixels - dpToPx(24)
+        )
 
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dpToPx(18), dpToPx(28), dpToPx(18), dpToPx(18))
-            setBackgroundColor(surfaceColor())
+            setPadding(
+                dpToPx(18),
+                dpToPx(28),
+                dpToPx(18),
+                dpToPx(18)
+            )
+            background = roundedBackground(surfaceColor(), 0)
         }
 
         val title = TextView(this).apply {
@@ -1091,16 +1221,18 @@ class MainActivity : Activity() {
             val button = Button(this).apply {
                 text = label
                 textSize = 16f
-                setAllCaps(false)
-                setTextColor(primaryTextColor())
-                if (icon != null) setSimpleIcon(this, icon)
                 gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                if (icon != null) setSimpleIcon(this, icon)
+                styleKStudioButton(this)
                 setOnClickListener { action() }
             }
-            panel.addView(button, LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                dpToPx(54)
-            ))
+            panel.addView(
+                button,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    dpToPx(54)
+                ).apply { bottomMargin = dpToPx(4) }
+            )
         }
 
         addItem("Home", { showHomeTab() }, R.drawable.ic_project_simple)
@@ -1113,35 +1245,24 @@ class MainActivity : Activity() {
 
         val close = Button(this).apply {
             text = "閉じる"
-            setAllCaps(false)
-            setTextColor(primaryTextColor())
+            styleKStudioButton(this)
         }
-        panel.addView(close, LinearLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            dpToPx(54)
-        ).apply {
-            topMargin = dpToPx(12)
-        })
+        panel.addView(
+            close,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dpToPx(54)
+            ).apply { topMargin = dpToPx(12) }
+        )
 
-        root.addView(panel, FrameLayout.LayoutParams(
-            dpToPx(340),
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            Gravity.START
-        ))
-
-        val scrim = View(this).apply {
-            setBackgroundColor(Color.argb(80, 0, 0, 0))
-        }
-        root.addView(scrim, FrameLayout.LayoutParams(
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT
-        ))
-        root.removeView(panel)
-        root.addView(panel, FrameLayout.LayoutParams(
-            dpToPx(340),
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            Gravity.START
-        ))
+        root.addView(
+            panel,
+            FrameLayout.LayoutParams(
+                panelWidth,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                Gravity.START
+            )
+        )
 
         val drawer = PopupWindow(
             root,
@@ -1151,20 +1272,35 @@ class MainActivity : Activity() {
         ).apply {
             isOutsideTouchable = true
             elevation = dpToPx(16).toFloat()
-            setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+            setBackgroundDrawable(
+                android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)
+            )
         }
 
-        scrim.setOnClickListener { drawer.dismiss() }
-        close.setOnClickListener { drawer.dismiss() }
-        addDrawerClickDismiss(panel, drawer)
+        fun dismissDrawer() {
+            if (!isMenuAnimationEnabled()) {
+                drawer.dismiss()
+                return
+            }
 
-        drawer.showAtLocation(topMenuBar, Gravity.START or Gravity.TOP, 0, 0)
-    }
+            panel.animate()
+                .translationX(-panelWidth.toFloat())
+                .setDuration(180)
+                .withEndAction { drawer.dismiss() }
+                .start()
 
-    private fun addDrawerClickDismiss(panel: ViewGroup, drawer: PopupWindow) {
+            scrim.animate()
+                .alpha(0f)
+                .setDuration(180)
+                .start()
+        }
+
+        scrim.setOnClickListener { dismissDrawer() }
+        close.setOnClickListener { dismissDrawer() }
+
         for (i in 0 until panel.childCount) {
             val child = panel.getChildAt(i)
-            if (child is Button && child.text != "閉じる") {
+            if (child is Button && child !== close) {
                 child.setOnClickListener {
                     when (child.text.toString()) {
                         "Home" -> showHomeTab()
@@ -1175,29 +1311,529 @@ class MainActivity : Activity() {
                         "設定" -> showSettingsDialog()
                         "アカウント" -> showAccountDialog()
                     }
-                    drawer.dismiss()
+                    dismissDrawer()
                 }
             }
+        }
+
+        drawer.showAtLocation(
+            topMenuBar,
+            Gravity.START or Gravity.TOP,
+            0,
+            0
+        )
+
+        if (isMenuAnimationEnabled()) {
+            panel.translationX = -panelWidth.toFloat()
+            panel.animate()
+                .translationX(0f)
+                .alpha(1f)
+                .setDuration(220)
+                .start()
+
+            scrim.animate()
+                .alpha(1f)
+                .setDuration(220)
+                .start()
+        } else {
+            panel.translationX = 0f
+            panel.alpha = 1f
+            scrim.alpha = 1f
         }
     }
 
     private fun showSettingsDialog() {
-        android.app.AlertDialog.Builder(this)
-            .setTitle("設定")
-            .setMessage("KStudioの設定画面です。")
-            .setPositiveButton("閉じる", null)
-            .show()
+        val root = FrameLayout(this)
+        val scrim = View(this).apply {
+            setBackgroundColor(Color.argb(110, 0, 0, 0))
+            alpha = 0f
+        }
+        root.addView(
+            scrim,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
+
+        val panelWidth = minOf(
+            dpToPx(380),
+            resources.displayMetrics.widthPixels - dpToPx(24)
+        )
+
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(
+                dpToPx(18),
+                dpToPx(20),
+                dpToPx(18),
+                dpToPx(18)
+            )
+            background = roundedBackground(surfaceColor(), 16)
+        }
+
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+
+        val title = TextView(this).apply {
+            text = "設定"
+            textSize = 24f
+            setTextColor(primaryTextColor())
+            setTypeface(null, android.graphics.Typeface.BOLD)
+        }
+        header.addView(
+            title,
+            LinearLayout.LayoutParams(0, dpToPx(54), 1f)
+        )
+
+        lateinit var popup: PopupWindow
+        val close = Button(this).apply {
+            text = "閉じる"
+            styleKStudioButton(this)
+        }
+        header.addView(
+            close,
+            LinearLayout.LayoutParams(dpToPx(82), dpToPx(44))
+        )
+        panel.addView(header)
+
+        val scroll = ScrollView(this)
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dpToPx(4), 0, dpToPx(12))
+        }
+        scroll.addView(
+            content,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        )
+        panel.addView(
+            scroll,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                0,
+                1f
+            )
+        )
+
+        fun addSection(textValue: String) {
+            content.addView(
+                TextView(this).apply {
+                    text = textValue
+                    textSize = 14f
+                    setTextColor(secondaryTextColor())
+                    setTypeface(null, android.graphics.Typeface.BOLD)
+                    setPadding(
+                        dpToPx(4),
+                        dpToPx(14),
+                        dpToPx(4),
+                        dpToPx(6)
+                    )
+                }
+            )
+        }
+
+        fun addSettingRow(
+            titleText: String,
+            description: String,
+            currentText: () -> String,
+            onClick: () -> Unit
+        ) {
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                background = roundedBackground(editorSurfaceColor(), 12)
+                setPadding(
+                    dpToPx(12),
+                    dpToPx(10),
+                    dpToPx(10),
+                    dpToPx(10)
+                )
+            }
+
+            val texts = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+            }
+            texts.addView(
+                TextView(this).apply {
+                    text = titleText
+                    textSize = 16f
+                    setTextColor(primaryTextColor())
+                }
+            )
+            texts.addView(
+                TextView(this).apply {
+                    text = description
+                    textSize = 12f
+                    setTextColor(secondaryTextColor())
+                    setPadding(0, dpToPx(3), 0, 0)
+                }
+            )
+
+            val action = Button(this).apply {
+                text = currentText()
+                textSize = 13f
+                styleKStudioButton(this)
+                setOnClickListener {
+                    onClick()
+                    text = currentText()
+                }
+            }
+
+            row.addView(
+                texts,
+                LinearLayout.LayoutParams(0, dpToPx(68), 1f)
+            )
+            row.addView(
+                action,
+                LinearLayout.LayoutParams(dpToPx(96), dpToPx(44))
+            )
+            content.addView(
+                row,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    bottomMargin = dpToPx(8)
+                }
+            )
+        }
+
+        fun addChoiceRow(
+            titleText: String,
+            description: String,
+            values: List<String>,
+            current: () -> String,
+            onChange: (String) -> Unit
+        ) {
+            addSettingRow(
+                titleText,
+                description,
+                current
+            ) {
+                val currentValue = current()
+                val index = values.indexOf(currentValue).coerceAtLeast(0)
+                onChange(values[(index + 1) % values.size])
+            }
+        }
+
+        addSection("エディタ")
+
+        addSettingRow(
+            "自動かっこ補完",
+            "括弧・クォートを入力したときに閉じ側を自動入力",
+            { if (autoPairingEnabled) "ON" else "OFF" }
+        ) {
+            autoPairingEnabled = !autoPairingEnabled
+            getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean("auto_pairing", autoPairingEnabled)
+                .apply()
+        }
+
+        addChoiceRow(
+            "Tab幅",
+            "Tabキーで入れるスペース数",
+            listOf("2", "4", "8"),
+            { getTabWidth().toString() }
+        ) { value ->
+            getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+                .edit()
+                .putInt("tab_width", value.toInt())
+                .apply()
+        }
+
+        addSettingRow(
+            "行番号",
+            "エディタ左側の行番号を表示",
+            {
+                if (lineNumbers.visibility == View.VISIBLE) "ON" else "OFF"
+            }
+        ) {
+            val enabled = lineNumbers.visibility != View.VISIBLE
+            getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean("line_numbers", enabled)
+                .apply()
+            applyEditorSettings()
+        }
+
+        addSettingRow(
+            "検索候補",
+            "コード内の単語を検索候補として表示",
+            { if (isSearchSuggestionsEnabled()) "ON" else "OFF" }
+        ) {
+            val enabled = !isSearchSuggestionsEnabled()
+            getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean("search_suggestions", enabled)
+                .apply()
+            if (!enabled) hideSearchSuggestions()
+        }
+
+        addChoiceRow(
+            "文字サイズ",
+            "エディタの文字サイズ",
+            listOf("12sp", "14sp", "15sp", "16sp", "18sp", "20sp"),
+            { getEditorFontSize().toString() + "sp" }
+        ) { value ->
+            getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+                .edit()
+                .putInt("font_size", value.removeSuffix("sp").toInt())
+                .apply()
+            applyEditorSettings()
+        }
+
+        addSettingRow(
+            "長い行の折り返し",
+            "長いコードを画面幅で折り返す",
+            { if (isLineWrapEnabled()) "ON" else "OFF" }
+        ) {
+            val enabled = !isLineWrapEnabled()
+            getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean("line_wrap", enabled)
+                .apply()
+            applyEditorSettings()
+        }
+
+        addSection("表示")
+
+        addChoiceRow(
+            "テーマ",
+            "ライト・ダーク・システム設定",
+            listOf("システム", "ライト", "ダーク"),
+            { getThemeModeLabel() }
+        ) { value ->
+            val mode = when (value) {
+                "ライト" -> "light"
+                "ダーク" -> "dark"
+                else -> "system"
+            }
+            getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+                .edit()
+                .putString("theme_mode", mode)
+                .apply()
+            popup.dismiss()
+            recreate()
+        }
+
+        addSettingRow(
+            "サイドメニューアニメーション",
+            "左から滑らかに出入りするアニメーション",
+            { if (isMenuAnimationEnabled()) "ON" else "OFF" }
+        ) {
+            val enabled = !isMenuAnimationEnabled()
+            getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean("menu_animation", enabled)
+                .apply()
+        }
+
+        addSection("履歴")
+
+        addSettingRow(
+            "履歴",
+            "Run・編集保存の履歴を記録",
+            { if (isHistoryEnabled()) "ON" else "OFF" }
+        ) {
+            val enabled = !isHistoryEnabled()
+            getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean("history_enabled", enabled)
+                .apply()
+        }
+
+        addChoiceRow(
+            "自動削除期間",
+            "古い履歴を自動で削除",
+            listOf("なし", "7日", "30日", "90日", "1年"),
+            { getHistoryRetentionLabel() }
+        ) { value ->
+            val days = when (value) {
+                "7日" -> 7
+                "30日" -> 30
+                "90日" -> 90
+                "1年" -> 365
+                else -> -1
+            }
+            getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+                .edit()
+                .putInt("history_retention_days", days)
+                .apply()
+            purgeHistory()
+        }
+
+        content.addView(
+            TextView(this).apply {
+                text = "保存履歴はカードをタップすると、保存時に入力した編集内容の説明を確認できます。"
+                textSize = 12f
+                setTextColor(secondaryTextColor())
+                setPadding(
+                    dpToPx(4),
+                    dpToPx(8),
+                    dpToPx(4),
+                    dpToPx(18)
+                )
+            }
+        )
+
+        root.addView(
+            panel,
+            FrameLayout.LayoutParams(
+                panelWidth,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                Gravity.END
+            )
+        )
+
+        popup = PopupWindow(
+            root,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            true
+        ).apply {
+            isOutsideTouchable = true
+            elevation = dpToPx(16).toFloat()
+            setBackgroundDrawable(
+                android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)
+            )
+        }
+
+        close.setOnClickListener {
+            closeKStudioPopup(popup, panel, true)
+        }
+        scrim.setOnClickListener {
+            closeKStudioPopup(popup, panel, true)
+        }
+
+        popup.showAtLocation(
+            topMenuBar,
+            Gravity.START or Gravity.TOP,
+            0,
+            0
+        )
+
+        if (isMenuAnimationEnabled()) {
+            panel.translationX = panelWidth.toFloat()
+            panel.animate()
+                .translationX(0f)
+                .alpha(1f)
+                .setDuration(220)
+                .start()
+            scrim.animate()
+                .alpha(1f)
+                .setDuration(180)
+                .start()
+        } else {
+            panel.translationX = 0f
+            panel.alpha = 1f
+            scrim.alpha = 1f
+        }
     }
 
     private fun showAccountDialog() {
-        android.app.AlertDialog.Builder(this)
-            .setTitle("アカウント")
-            .setMessage("アカウント機能は準備中です。")
-            .setPositiveButton("閉じる", null)
-            .show()
+        showKStudioMessage("アカウント", "アカウント機能は準備中です。")
     }
 
-    // Project Setup
+    private fun showKStudioMessage(titleText: String, message: String) {
+        val root = FrameLayout(this)
+        val scrim = View(this).apply {
+            setBackgroundColor(Color.argb(110, 0, 0, 0))
+        }
+        root.addView(
+            scrim,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
+
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(
+                dpToPx(20),
+                dpToPx(18),
+                dpToPx(20),
+                dpToPx(18)
+            )
+            background = roundedBackground(surfaceColor(), 16)
+        }
+
+        panel.addView(
+            TextView(this).apply {
+                text = titleText
+                textSize = 21f
+                setTextColor(primaryTextColor())
+                setTypeface(null, android.graphics.Typeface.BOLD)
+            }
+        )
+        panel.addView(
+            TextView(this).apply {
+                text = message
+                textSize = 15f
+                setTextColor(primaryTextColor())
+                setPadding(0, dpToPx(14), 0, dpToPx(14))
+            }
+        )
+
+        val close = Button(this).apply {
+            text = "閉じる"
+            styleKStudioButton(this)
+        }
+        panel.addView(
+            close,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dpToPx(46)
+            )
+        )
+
+        root.addView(
+            panel,
+            FrameLayout.LayoutParams(
+                minOf(
+                    dpToPx(360),
+                    resources.displayMetrics.widthPixels - dpToPx(32)
+                ),
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.CENTER
+            )
+        )
+
+        lateinit var popup: PopupWindow
+        popup = PopupWindow(
+            root,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            true
+        ).apply {
+            isOutsideTouchable = true
+            setBackgroundDrawable(
+                android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)
+            )
+        }
+
+        close.setOnClickListener {
+            closeKStudioPopup(popup, panel, false)
+        }
+        scrim.setOnClickListener {
+            closeKStudioPopup(popup, panel, false)
+        }
+
+        popup.showAtLocation(topMenuBar, Gravity.CENTER, 0, 0)
+        panel.alpha = 0f
+        panel.scaleX = 0.96f
+        panel.scaleY = 0.96f
+        panel.animate()
+            .alpha(1f)
+            .scaleX(1f)
+            .scaleY(1f)
+            .setDuration(180)
+            .start()
+    }
 
     private fun startNewProject() {
 
@@ -1668,6 +2304,32 @@ class MainActivity : Activity() {
         fileCreatePathInput.selectAll()
 
         fileCreateContentInput.setText("")
+
+        if (!::fileCreateHiddenButton.isInitialized) {
+            fileCreateHiddenButton = Button(this).apply {
+                text = "隠しファイル: OFF"
+                textSize = 13f
+                styleKStudioButton(this)
+                setOnClickListener {
+                    fileCreateHidden = !fileCreateHidden
+                    updateFileCreateHiddenButton()
+                }
+            }
+            fileCreatePanel.addView(
+                fileCreateHiddenButton,
+                fileCreatePanel.indexOfChild(fileCreateContentInput) + 1,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    dpToPx(46)
+                ).apply {
+                    topMargin = dpToPx(8)
+                    bottomMargin = dpToPx(4)
+                }
+            )
+        }
+
+        fileCreateHidden = false
+        updateFileCreateHiddenButton()
         fileCreatePathInput.requestFocus()
     }
 
@@ -2345,6 +3007,14 @@ class MainActivity : Activity() {
 
     // GitHub-style Create New File
 
+    private var fileCreateHidden = false
+
+    private fun updateFileCreateHiddenButton() {
+        if (!::fileCreateHiddenButton.isInitialized) return
+        fileCreateHiddenButton.text =
+            if (fileCreateHidden) "隠しファイル: ON" else "隠しファイル: OFF"
+    }
+
     private fun createGitHubStyleFile() {
 
         val baseFolder =
@@ -2481,8 +3151,12 @@ class MainActivity : Activity() {
                     }
                 }
 
-                val fileName =
+                var fileName =
                     segments.last()
+
+                if (fileCreateHidden && !fileName.startsWith(".")) {
+                    fileName = "." + fileName
+                }
 
                 if (
                     findChildByName(
@@ -3418,15 +4092,19 @@ class MainActivity : Activity() {
     }
 
     private fun isDarkMode(): Boolean {
+        val themeMode = getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+            .getString("theme_mode", "system")
 
-        val mode =
-            resources.configuration.uiMode and
-                android.content.res.Configuration
-                    .UI_MODE_NIGHT_MASK
-
-        return mode ==
-            android.content.res.Configuration
-                .UI_MODE_NIGHT_YES
+        return when (themeMode) {
+            "light" -> false
+            "dark" -> true
+            else -> {
+                val mode =
+                    resources.configuration.uiMode and
+                        android.content.res.Configuration.UI_MODE_NIGHT_MASK
+                mode == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            }
+        }
     }
 
     private fun surfaceColor(): Int =
@@ -3518,6 +4196,9 @@ class MainActivity : Activity() {
         fileCreatePathInput.setHintTextColor(
             secondaryTextColor()
         )
+
+        applyEditorSettings()
+        styleButtonsInView(findViewById(android.R.id.content))
     }
 
     // Preview Fullscreen    // Preview Fullscreen
@@ -3716,9 +4397,9 @@ class MainActivity : Activity() {
     }
 
     private fun swapEditorAndPreview() {
-
         if (
             fullscreen ||
+            swapAnimating ||
             projectTab.visibility == View.VISIBLE ||
             fileTab.visibility == View.VISIBLE ||
             historyTab.visibility == View.VISIBLE
@@ -3726,8 +4407,47 @@ class MainActivity : Activity() {
             return
         }
 
-        editorPreviewSwapped = !editorPreviewSwapped
-        applyEditorPreviewOrder()
+        val parent = editorContainer.parent as? LinearLayout ?: return
+        val newSwapped = !editorPreviewSwapped
+
+        if (!isMenuAnimationEnabled()) {
+            editorPreviewSwapped = newSwapped
+            applyEditorPreviewOrder()
+            return
+        }
+
+        val delta = (previewArea.top - editorContainer.top).toFloat()
+        if (kotlin.math.abs(delta) < dpToPx(40)) {
+            editorPreviewSwapped = newSwapped
+            applyEditorPreviewOrder()
+            return
+        }
+
+        swapAnimating = true
+        editorPreviewSwapped = newSwapped
+
+        editorContainer.animate().cancel()
+        previewArea.animate().cancel()
+        editorContainer.translationY = 0f
+        previewArea.translationY = 0f
+
+        editorContainer.animate()
+            .translationY(if (newSwapped) delta else -delta)
+            .setDuration(300)
+            .setInterpolator(android.view.animation.AccelerateDecelerateInterpolator())
+            .start()
+
+        previewArea.animate()
+            .translationY(if (newSwapped) -delta else delta)
+            .setDuration(300)
+            .setInterpolator(android.view.animation.AccelerateDecelerateInterpolator())
+            .withEndAction {
+                editorContainer.translationY = 0f
+                previewArea.translationY = 0f
+                applyEditorPreviewOrder()
+                swapAnimating = false
+            }
+            .start()
     }
 
     private fun applyEditorPreviewOrder() {
@@ -4256,6 +4976,7 @@ class MainActivity : Activity() {
     }
 
     private fun renderHistoryTab() {
+        purgeHistory()
 
         val preferences = getSharedPreferences("KStudio", Context.MODE_PRIVATE)
         val history = preferences.getString("history", "") ?: ""
@@ -4263,7 +4984,11 @@ class MainActivity : Activity() {
 
         if (history.isBlank()) {
             val empty = TextView(this).apply {
-                text = "まだ履歴はありません。\n\nRun または「編集を保存」を実行するとここに履歴が表示されます。"
+                text = if (isHistoryEnabled()) {
+                    "まだ履歴はありません。\n\nRun または「編集を保存」を実行するとここに履歴が表示されます。"
+                } else {
+                    "履歴機能はOFFです。\n\n設定からONにすると、新しいRun・保存履歴が記録されます。"
+                }
                 textSize = 15f
                 setTextColor(primaryTextColor())
                 setPadding(dpToPx(16), dpToPx(28), dpToPx(16), dpToPx(28))
@@ -4292,66 +5017,423 @@ class MainActivity : Activity() {
                     time = fields[1],
                     serial = fields[2],
                     detail = fields[3],
-                    success = fields.getOrNull(4) == "success"
+                    success = fields.getOrNull(4) == "success",
+                    comment = fields.getOrNull(5).orEmpty()
                 )
             }
         }
     }
 
-    private fun addHistoryCard(type: String, time: String, serial: String, detail: String, success: Boolean) {
+    private fun addHistoryCard(
+        type: String,
+        time: String,
+        serial: String,
+        detail: String,
+        success: Boolean,
+        comment: String
+    ) {
         val card = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dpToPx(16), dpToPx(14), dpToPx(16), dpToPx(14))
-            background = getDrawable(R.drawable.rounded_history_card)
+            background = roundedBackground(surfaceColor(), 14)
+            isClickable = type == "save" && comment.isNotBlank()
+            isFocusable = isClickable
         }
 
         val timeRow = TextView(this).apply {
-            text = "❘  $time  ${if (type == "run") "Run" else "保存"}"
+            text = "│  " + time + "  " + if (type == "run") "Run" else "保存"
             textSize = 15f
             setTextColor(primaryTextColor())
         }
         val serialRow = TextView(this).apply {
-            text = "❘  $serial"
+            text = "│  " + serial
             textSize = 13f
             setTextColor(secondaryTextColor())
             setPadding(0, dpToPx(6), 0, 0)
         }
         val detailRow = TextView(this).apply {
-            text = if (type == "run") if (success) "❘  成功" else "❘  失敗" else "❘  $detail"
+            text = if (type == "run") {
+                if (success) "│  成功" else "│  失敗"
+            } else {
+                "│  " + detail
+            }
             textSize = 14f
-            setTextColor(if (type == "run" && !success) Color.rgb(210, 70, 70) else primaryTextColor())
+            setTextColor(
+                if (type == "run" && !success) {
+                    Color.rgb(210, 70, 70)
+                } else {
+                    primaryTextColor()
+                }
+            )
             setPadding(0, dpToPx(6), 0, 0)
         }
+
+        card.addView(timeRow)
+        card.addView(serialRow)
+        card.addView(detailRow)
+
+        if (type == "save" && comment.isNotBlank()) {
+            card.addView(
+                TextView(this).apply {
+                    text = "コメントを見る"
+                    textSize = 12f
+                    setTextColor(secondaryTextColor())
+                    setPadding(0, dpToPx(10), 0, 0)
+                }
+            )
+            card.setOnClickListener {
+                showKStudioMessage("編集内容の説明", comment)
+            }
+        }
+
         val restore = Button(this).apply {
             text = "その時のファイルに戻す"
             textSize = 13f
             isEnabled = false
             alpha = 0.55f
-            minWidth = 0
-            background = getDrawable(R.drawable.rounded_button)
+            styleKStudioButton(this)
         }
-        card.addView(timeRow)
-        card.addView(serialRow)
-        card.addView(detailRow)
-        card.addView(restore, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dpToPx(42)).apply { topMargin = dpToPx(10) })
-        historyText.addView(card, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dpToPx(10) })
+        card.addView(
+            restore,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dpToPx(42)
+            ).apply {
+                topMargin = dpToPx(10)
+            }
+        )
+
+        historyText.addView(
+            card,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                bottomMargin = dpToPx(10)
+            }
+        )
     }
 
     private fun clearHistory() {
-
-        android.app.AlertDialog.Builder(this)
-            .setTitle("履歴を削除しますか？")
-            .setMessage("実行履歴・保存履歴をすべて削除します。")
-            .setNegativeButton("キャンセル", null)
-            .setPositiveButton("削除") { _, _ ->
-                getSharedPreferences("KStudio", Context.MODE_PRIVATE).edit().remove("history").apply()
-                renderHistoryTab()
-                Toast.makeText(this, "履歴を削除しました", Toast.LENGTH_SHORT).show()
-            }
-            .show()
+        showKStudioConfirm(
+            "履歴を削除しますか？",
+            "実行履歴・保存履歴をすべて削除します。"
+        ) {
+            getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+                .edit()
+                .remove("history")
+                .apply()
+            renderHistoryTab()
+            Toast.makeText(this, "履歴を削除しました", Toast.LENGTH_SHORT).show()
+        }
     }
 
     // History Save
+    // History Save
+
+    private fun loadEditorSettings() {
+        val preferences = getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+
+        if (!preferences.contains("auto_pairing")) {
+            preferences.edit().putBoolean("auto_pairing", true).apply()
+        }
+        if (!preferences.contains("tab_width")) {
+            preferences.edit().putInt("tab_width", 4).apply()
+        }
+        if (!preferences.contains("line_numbers")) {
+            preferences.edit().putBoolean("line_numbers", true).apply()
+        }
+        if (!preferences.contains("search_suggestions")) {
+            preferences.edit().putBoolean("search_suggestions", true).apply()
+        }
+        if (!preferences.contains("font_size")) {
+            preferences.edit().putInt("font_size", 15).apply()
+        }
+        if (!preferences.contains("line_wrap")) {
+            preferences.edit().putBoolean("line_wrap", true).apply()
+        }
+        if (!preferences.contains("theme_mode")) {
+            preferences.edit().putString("theme_mode", "system").apply()
+        }
+        if (!preferences.contains("menu_animation")) {
+            preferences.edit().putBoolean("menu_animation", true).apply()
+        }
+        if (!preferences.contains("history_enabled")) {
+            preferences.edit().putBoolean("history_enabled", true).apply()
+        }
+        if (!preferences.contains("history_retention_days")) {
+            preferences.edit().putInt("history_retention_days", -1).apply()
+        }
+
+        applyEditorSettings()
+    }
+
+    private fun applyEditorSettings() {
+        if (!::codeEditor.isInitialized) return
+
+        autoPairingEnabled = getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+            .getBoolean("auto_pairing", true)
+
+        codeEditor.setTextSize(
+            android.util.TypedValue.COMPLEX_UNIT_SP,
+            getEditorFontSize().toFloat()
+        )
+        codeEditor.setHorizontallyScrolling(!isLineWrapEnabled())
+
+        if (::lineNumbers.isInitialized) {
+            lineNumbers.visibility =
+                if (getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+                    .getBoolean("line_numbers", true)
+                ) View.VISIBLE else View.GONE
+        }
+
+        updateHistoryButtons()
+        lineNumbers.invalidate()
+    }
+
+    private fun getTabWidth(): Int =
+        getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+            .getInt("tab_width", 4)
+            .let { if (it == 2 || it == 4 || it == 8) it else 4 }
+
+    private fun getEditorFontSize(): Int =
+        getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+            .getInt("font_size", 15)
+            .coerceIn(10, 30)
+
+    private fun isLineWrapEnabled(): Boolean =
+        getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+            .getBoolean("line_wrap", true)
+
+    private fun isSearchSuggestionsEnabled(): Boolean =
+        getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+            .getBoolean("search_suggestions", true)
+
+    private fun isMenuAnimationEnabled(): Boolean =
+        getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+            .getBoolean("menu_animation", true)
+
+    private fun isHistoryEnabled(): Boolean =
+        getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+            .getBoolean("history_enabled", true)
+
+    private fun getThemeModeLabel(): String =
+        when (
+            getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+                .getString("theme_mode", "system")
+        ) {
+            "light" -> "ライト"
+            "dark" -> "ダーク"
+            else -> "システム"
+        }
+
+    private fun getHistoryRetentionLabel(): String =
+        when (
+            getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+                .getInt("history_retention_days", -1)
+        ) {
+            7 -> "7日"
+            30 -> "30日"
+            90 -> "90日"
+            365 -> "1年"
+            else -> "なし"
+        }
+
+    private fun purgeHistory() {
+        val preferences = getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+        val retentionDays = preferences
+            .getInt("history_retention_days", -1)
+        if (retentionDays < 0) return
+
+        val history = preferences.getString("history", "") ?: return
+        if (history.isBlank()) return
+
+        val format = SimpleDateFormat(
+            "yyyy/MM/dd HH:mm",
+            Locale.getDefault()
+        )
+        val cutoff = System.currentTimeMillis() -
+            retentionDays * 24L * 60L * 60L * 1000L
+
+        val kept = history
+            .split("\u001E")
+            .filter { raw ->
+                if (raw.isBlank()) return@filter false
+                val timeText = raw.split("\u001F").getOrNull(1)
+                    ?: return@filter true
+                val time = runCatching { format.parse(timeText)?.time }.getOrNull()
+                time == null || time >= cutoff
+            }
+            .joinToString("\u001E")
+
+        if (kept != history) {
+            preferences.edit().putString("history", kept).apply()
+        }
+    }
+
+    private fun roundedBackground(fill: Int, radiusDp: Int): GradientDrawable =
+        GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(fill)
+            cornerRadius = dpToPx(radiusDp).toFloat()
+        }
+
+    private fun styleKStudioButton(button: Button) {
+        button.setAllCaps(false)
+        button.setTextColor(primaryTextColor())
+        button.background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(
+                if (isDarkMode()) Color.rgb(48, 48, 52)
+                else Color.rgb(236, 240, 244)
+            )
+            setStroke(
+                dpToPx(1),
+                if (isDarkMode()) Color.rgb(78, 78, 84)
+                else Color.rgb(214, 218, 224)
+            )
+            cornerRadius = dpToPx(10).toFloat()
+        }
+        button.minHeight = dpToPx(42)
+    }
+
+    private fun styleButtonsInView(view: View) {
+        if (view is Button) styleKStudioButton(view)
+        if (view is ViewGroup) {
+            for (i in 0 until view.childCount) {
+                styleButtonsInView(view.getChildAt(i))
+            }
+        }
+    }
+
+    private fun closeKStudioPopup(
+        popup: PopupWindow,
+        panel: View,
+        animate: Boolean
+    ) {
+        if (!animate) {
+            popup.dismiss()
+            return
+        }
+        panel.animate()
+            .alpha(0f)
+            .scaleX(0.98f)
+            .scaleY(0.98f)
+            .setDuration(140)
+            .withEndAction { popup.dismiss() }
+            .start()
+    }
+
+    private fun showKStudioConfirm(
+        titleText: String,
+        message: String,
+        onConfirm: () -> Unit
+    ) {
+        val root = FrameLayout(this)
+        val scrim = View(this).apply {
+            setBackgroundColor(Color.argb(110, 0, 0, 0))
+        }
+        root.addView(
+            scrim,
+            FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        )
+
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(
+                dpToPx(20),
+                dpToPx(18),
+                dpToPx(20),
+                dpToPx(18)
+            )
+            background = roundedBackground(surfaceColor(), 16)
+        }
+        panel.addView(
+            TextView(this).apply {
+                text = titleText
+                textSize = 21f
+                setTextColor(primaryTextColor())
+                setTypeface(null, android.graphics.Typeface.BOLD)
+            }
+        )
+        panel.addView(
+            TextView(this).apply {
+                text = message
+                textSize = 15f
+                setTextColor(primaryTextColor())
+                setPadding(0, dpToPx(14), 0, dpToPx(18))
+            }
+        )
+
+        val buttons = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
+        val cancel = Button(this).apply {
+            text = "キャンセル"
+            styleKStudioButton(this)
+        }
+        val confirm = Button(this).apply {
+            text = "削除"
+            styleKStudioButton(this)
+        }
+        buttons.addView(
+            cancel,
+            LinearLayout.LayoutParams(0, dpToPx(46), 1f)
+        )
+        buttons.addView(
+            confirm,
+            LinearLayout.LayoutParams(0, dpToPx(46), 1f).apply {
+                marginStart = dpToPx(6)
+            }
+        )
+        panel.addView(buttons)
+
+        root.addView(
+            panel,
+            FrameLayout.LayoutParams(
+                minOf(
+                    dpToPx(380),
+                    resources.displayMetrics.widthPixels - dpToPx(32)
+                ),
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.CENTER
+            )
+        )
+
+        lateinit var popup: PopupWindow
+        popup = PopupWindow(
+            root,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            true
+        ).apply {
+            isOutsideTouchable = true
+            setBackgroundDrawable(
+                android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)
+            )
+        }
+
+        cancel.setOnClickListener { popup.dismiss() }
+        scrim.setOnClickListener { popup.dismiss() }
+        confirm.setOnClickListener {
+            popup.dismiss()
+            onConfirm()
+        }
+
+        popup.showAtLocation(topMenuBar, Gravity.CENTER, 0, 0)
+        panel.alpha = 0f
+        panel.scaleX = 0.96f
+        panel.scaleY = 0.96f
+        panel.animate()
+            .alpha(1f)
+            .scaleX(1f)
+            .scaleY(1f)
+            .setDuration(180)
+            .start()
+    }
 
     private fun historySerial(): String {
         val chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -4359,13 +5441,41 @@ class MainActivity : Activity() {
         return buildString { repeat(7) { append(chars[random.nextInt(chars.length)]) } }
     }
 
-    private fun prependHistoryEntry(type: String, detail: String, success: Boolean = true) {
+    private fun prependHistoryEntry(
+        type: String,
+        detail: String,
+        success: Boolean = true,
+        extra: String = ""
+    ) {
+        if (!isHistoryEnabled()) return
+
+        purgeHistory()
+
         val preferences = getSharedPreferences("KStudio", Context.MODE_PRIVATE)
         val oldHistory = preferences.getString("history", "") ?: ""
         val time = SimpleDateFormat("yyyy/MM/dd HH:mm", Locale.getDefault()).format(Date())
         val serial = historySerial()
-        val entry = listOf(type, time, serial, detail.replace("\u001E", "").replace("\u001F", ""), if (success) "success" else "failed").joinToString("\u001F")
-        preferences.edit().putString("history", entry + "\u001E" + oldHistory).apply()
+
+        val safeDetail = detail
+            .replace("\u001E", "")
+            .replace("\u001F", "")
+        val safeExtra = extra
+            .replace("\u001E", "")
+            .replace("\u001F", "")
+
+        val entry = listOf(
+            type,
+            time,
+            serial,
+            safeDetail,
+            if (success) "success" else "failed",
+            safeExtra
+        ).joinToString("\u001F")
+
+        preferences
+            .edit()
+            .putString("history", entry + "\u001E" + oldHistory)
+            .apply()
     }
 
     private fun saveRunHistory(success: Boolean) {
@@ -4997,8 +6107,11 @@ class MainActivity : Activity() {
         if (
             keyword.isEmpty()
         ) {
+            hideSearchSuggestions()
             return
         }
+
+        hideSearchSuggestions()
 
         val text =
             codeEditor.text
