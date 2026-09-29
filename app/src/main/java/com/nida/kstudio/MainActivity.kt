@@ -774,7 +774,8 @@ class MainActivity : Activity() {
         )
 
         val newFile = Button(this)
-        newFile.text = "Create new file"\n        setSimpleIcon(newFile, R.drawable.ic_file_simple)
+        newFile.text = "Create new file"
+        setSimpleIcon(newFile, R.drawable.ic_file_simple)
         newFile.setOnClickListener {
             folderRootUri?.let {
                 currentFolderUri = it
@@ -785,7 +786,8 @@ class MainActivity : Activity() {
         menu.addView(newFile)
 
         val newFolder = Button(this)
-        newFolder.text = "Create new folder"\n        setSimpleIcon(newFolder, R.drawable.ic_folder_simple)
+        newFolder.text = "Create new folder"
+        setSimpleIcon(newFolder, R.drawable.ic_folder_simple)
         newFolder.setOnClickListener {
             folderRootUri?.let {
                 askCreateFolder(it) { showHomeTab() }
@@ -795,7 +797,8 @@ class MainActivity : Activity() {
         menu.addView(newFolder)
 
         val search = Button(this)
-        search.text = "Search file"\n        setSimpleIcon(search, R.drawable.ic_search_simple)
+        search.text = "Search file"
+        setSimpleIcon(search, R.drawable.ic_search_simple)
         search.setOnClickListener {
             showFileSearchDialog()
             popup.dismiss()
@@ -3906,7 +3909,8 @@ class MainActivity : Activity() {
 
         val title =
             TextView(this).apply {
-                text = "Run OK"\n                setSimpleIcon(header, R.drawable.ic_play_simple)
+                text = "Run OK"
+                setSimpleIcon(this, R.drawable.ic_play_simple)
                 textSize = 24f
                 setTextColor(
                     Color.rgb(30, 150, 70)
@@ -4101,7 +4105,8 @@ class MainActivity : Activity() {
         val header =
             TextView(this).apply {
 
-                text = "Error"\n                setSimpleIcon(header, R.drawable.ic_error_simple)
+                text = "Error"
+                setSimpleIcon(this, R.drawable.ic_error_simple)
 
                 textSize = 22f
 
