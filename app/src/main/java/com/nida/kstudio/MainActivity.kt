@@ -368,7 +368,75 @@ class MainActivity : Activity() {
 
         lineNumbers.invalidate()
 
+        if (savedInstanceState != null) {
+
+            historyApplying = true
+
+            codeEditor.setText(
+                savedInstanceState.getString(
+                    "editorText",
+                    ""
+                )
+            )
+
+            historyApplying = false
+
+            currentFileName =
+                savedInstanceState.getString(
+                    "fileName",
+                    currentFileName
+                )
+
+            val savedFileUri =
+                savedInstanceState.getString(
+                    "fileUri"
+                )
+
+            currentFileUri =
+                savedFileUri?.let {
+                    Uri.parse(it)
+                }
+
+            isDirty =
+                savedInstanceState.getBoolean(
+                    "dirty",
+                    false
+                )
+
+            updateEditorHeader()
+            updateHistoryButtons()
+        }
+
         updatePreview()
+    }
+
+    override fun onSaveInstanceState(
+        outState: Bundle
+    ) {
+
+        outState.putString(
+            "editorText",
+            codeEditor.text.toString()
+        )
+
+        outState.putString(
+            "fileName",
+            currentFileName
+        )
+
+        outState.putString(
+            "fileUri",
+            currentFileUri?.toString()
+        )
+
+        outState.putBoolean(
+            "dirty",
+            isDirty
+        )
+
+        super.onSaveInstanceState(
+            outState
+        )
     }
 
     // Main Menu
