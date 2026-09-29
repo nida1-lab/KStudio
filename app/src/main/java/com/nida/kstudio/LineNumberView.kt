@@ -28,6 +28,17 @@ class LineNumberView @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
 
+        paint.color =
+            if (
+                (resources.configuration.uiMode and
+                    android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+                android.content.res.Configuration.UI_MODE_NIGHT_YES
+            ) {
+                0xFFAAAAAA.toInt()
+            } else {
+                0xFF777777.toInt()
+            }
+
         val edit = editor ?: return
         val layout = edit.layout ?: return
 
