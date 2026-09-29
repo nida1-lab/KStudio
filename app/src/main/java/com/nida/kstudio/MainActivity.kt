@@ -71,7 +71,7 @@ class MainActivity : Activity() {
     private var currentFolderUri: Uri? = null
     private var currentFileUri: Uri? = null
     private var currentFileName = "新規ファイル"
-    private val currentFolderStack = mutableListOf<Uri>
+    private val currentFolderStack = java.util.ArrayList<Uri>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
