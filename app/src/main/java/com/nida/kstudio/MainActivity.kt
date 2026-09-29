@@ -473,93 +473,6 @@ class MainActivity : Activity() {
             }
         }
 
-        private fun showSearchSuggestionsIfNeeded() {
-        if (!isSearchSuggestionsEnabled()) {
-            hideSearchSuggestions()
-            return
-        }
-
-        val query = searchInput.text.toString().trim()
-        if (query.isEmpty()) {
-            hideSearchSuggestions()
-            return
-        }
-
-        val words = Regex("[A-Za-z_][A-Za-z0-9_]{2,}")
-            .findAll(codeEditor.text.toString())
-            .map { it.value }
-            .filter { it.contains(query, ignoreCase = true) }
-            .distinct()
-            .take(8)
-            .toList()
-
-        if (words.isEmpty()) {
-            hideSearchSuggestions()
-            return
-        }
-
-        hideSearchSuggestions()
-
-        val list = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(
-                dpToPx(6),
-                dpToPx(6),
-                dpToPx(6),
-                dpToPx(6)
-            )
-            background = roundedBackground(surfaceColor(), 12)
-        }
-
-        words.forEach { word ->
-            val item = Button(this).apply {
-                text = word
-                textSize = 14f
-                gravity = Gravity.START or Gravity.CENTER_VERTICAL
-                styleKStudioButton(this)
-                setOnClickListener {
-                    searchInput.setText(word)
-                    searchInput.setSelection(word.length)
-                    hideSearchSuggestions()
-                }
-            }
-            list.addView(
-                item,
-                LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    dpToPx(42)
-                )
-            )
-        }
-
-        searchSuggestionsPopup = PopupWindow(
-            list,
-            minOf(
-                dpToPx(320),
-                resources.displayMetrics.widthPixels - dpToPx(24)
-            ),
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            true
-        ).apply {
-            isOutsideTouchable = true
-            elevation = dpToPx(8).toFloat()
-            setBackgroundDrawable(
-                android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)
-            )
-        }
-
-        searchSuggestionsPopup?.showAsDropDown(
-            searchInput,
-            0,
-            dpToPx(4)
-        )
-    }
-
-    private fun hideSearchSuggestions() {
-        searchSuggestionsPopup?.dismiss()
-        searchSuggestionsPopup = null
-    }
-
     // Line Jump
 
         lineButton.setOnClickListener {
@@ -783,6 +696,93 @@ class MainActivity : Activity() {
         super.onSaveInstanceState(
             outState
         )
+    }
+
+    private fun showSearchSuggestionsIfNeeded() {
+    if (!isSearchSuggestionsEnabled()) {
+        hideSearchSuggestions()
+        return
+    }
+
+    val query = searchInput.text.toString().trim()
+    if (query.isEmpty()) {
+        hideSearchSuggestions()
+        return
+    }
+
+    val words = Regex("[A-Za-z_][A-Za-z0-9_]{2,}")
+        .findAll(codeEditor.text.toString())
+        .map { it.value }
+        .filter { it.contains(query, ignoreCase = true) }
+        .distinct()
+        .take(8)
+        .toList()
+
+    if (words.isEmpty()) {
+        hideSearchSuggestions()
+        return
+    }
+
+    hideSearchSuggestions()
+
+    val list = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setPadding(
+            dpToPx(6),
+            dpToPx(6),
+            dpToPx(6),
+            dpToPx(6)
+        )
+        background = roundedBackground(surfaceColor(), 12)
+    }
+
+    words.forEach { word ->
+        val item = Button(this).apply {
+            text = word
+            textSize = 14f
+            gravity = Gravity.START or Gravity.CENTER_VERTICAL
+            styleKStudioButton(this)
+            setOnClickListener {
+                searchInput.setText(word)
+                searchInput.setSelection(word.length)
+                hideSearchSuggestions()
+            }
+        }
+        list.addView(
+            item,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dpToPx(42)
+            )
+        )
+    }
+
+    searchSuggestionsPopup = PopupWindow(
+        list,
+        minOf(
+            dpToPx(320),
+            resources.displayMetrics.widthPixels - dpToPx(24)
+        ),
+        ViewGroup.LayoutParams.WRAP_CONTENT,
+        true
+    ).apply {
+        isOutsideTouchable = true
+        elevation = dpToPx(8).toFloat()
+        setBackgroundDrawable(
+            android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)
+        )
+    }
+
+    searchSuggestionsPopup?.showAsDropDown(
+        searchInput,
+        0,
+        dpToPx(4)
+    )
+    }
+
+    private fun hideSearchSuggestions() {
+    searchSuggestionsPopup?.dismiss()
+    searchSuggestionsPopup = null
     }
 
     private fun showEditorScreen() {
@@ -2315,9 +2315,10 @@ class MainActivity : Activity() {
                     updateFileCreateHiddenButton()
                 }
             }
-            fileCreatePanel.addView(
+            val createPanel = fileCreatePanel as? ViewGroup
+            createPanel?.addView(
                 fileCreateHiddenButton,
-                fileCreatePanel.indexOfChild(fileCreateContentInput) + 1,
+                (createPanel.indexOfChild(fileCreateContentInput) + 1).coerceAtLeast(0),
                 LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     dpToPx(46)
