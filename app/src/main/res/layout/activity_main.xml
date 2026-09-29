@@ -1,15 +1,687 @@
-<?xml version="1.0" encodi
+<?xml version="1.0" encoding="utf-8"?>
+
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="?android:colorBackground">
+
+    <!-- Top Menu -->
+
+    <LinearLayout
+        android:id="@+id/topMenuBar"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:gravity="center_vertical"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp">
+
+        <Button
+            android:id="@+id/menuButton"
+            android:layout_width="112dp"
+            android:layout_height="44dp"
+            android:text="☰ メニュー"
+            android:textSize="14sp"
+            android:minWidth="0dp"
+            android:minHeight="0dp"
+            android:background="@drawable/rounded_button" />
+
+        <HorizontalScrollView
+            android:id="@+id/topNavScroll"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:scrollbars="none"
+            android:overScrollMode="never">
+
+            <LinearLayout
+                android:id="@+id/topNavItems"
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/topHomeButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:text="Home"
+                    android:textSize="14sp"
+                    android:clickable="true"
+                    android:focusable="true" />
+
+                <TextView
+                    android:id="@+id/topFolderButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:text="フォルダ"
+                    android:textSize="14sp"
+                    android:clickable="true"
+                    android:focusable="true" />
+
+                <TextView
+                    android:id="@+id/topHistoryButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:text="履歴"
+                    android:textSize="14sp"
+                    android:clickable="true"
+                    android:focusable="true" />
+
+                <TextView
+                    android:id="@+id/topProjectsButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:text="プロジェクト"
+                    android:textSize="14sp"
+                    android:singleLine="true"
+                    android:clickable="true"
+                    android:focusable="true" />
+
+                <TextView
+                    android:id="@+id/topFilesButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:text="ファイル"
+                    android:textSize="14sp"
+                    android:singleLine="true"
+                    android:clickable="true"
+                    android:focusable="true" />
+
+            </LinearLayout>
+
+        </HorizontalScrollView>
+
+    </LinearLayout>
+
+    <!-- Project -->
+
+    <LinearLayout
+        android:id="@+id/projectBar"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp">
+
+        <TextView
+            android:id="@+id/projectName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="現在編集中: フォルダ名 / プロジェクト名"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:singleLine="true"
+            android:ellipsize="end" />
+
+    </LinearLayout>
+
+    <!-- Search -->
+
+    <LinearLayout
+        android:id="@+id/searchBar"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:padding="6dp"
+        android:gravity="center_vertical">
+
+        <EditText
+            android:id="@+id/searchInput"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:hint="ワード検索"
+            android:singleLine="true"
+            android:imeOptions="actionSearch"
+            android:inputType="text"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp" />
+
+        <Button
+            android:id="@+id/searchButton"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_marginStart="4dp"
+            android:text="検索"
+            android:minWidth="0dp"
+            android:background="@drawable/rounded_button" />
+
+        <EditText
+            android:id="@+id/lineInput"
+            android:layout_width="60dp"
+            android:layout_height="match_parent"
+            android:layout_marginStart="6dp"
+            android:hint="行"
+            android:inputType="number"
+            android:imeOptions="actionGo"
+            android:gravity="center"
+            android:singleLine="true" />
+
+        <Button
+            android:id="@+id/lineButton"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:layout_marginStart="4dp"
+            android:text="移動"
+            android:minWidth="0dp"
+            android:background="@drawable/rounded_button" />
+
+    </LinearLayout>
+
+    <!-- Work Area -->
+
+    <LinearLayout
+        android:id="@+id/workArea"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <!-- Editor -->
+        <LinearLayout
+            android:id="@+id/editorContainer"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="horizontal">
+
+            <com.nida.kstudio.LineNumberView
+                android:id="@+id/lineNumbers"
+                android:layout_width="45dp"
+                android:layout_height="match_parent"
+                android:background="?android:colorControlHighlight" />
+
+            <EditText
+                android:id="@+id/codeEditor"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="top|start"
+                android:fontFamily="monospace"
+                android:inputType="textMultiLine|textNoSuggestions"
+                android:padding="16dp"
+                android:background="?android:colorBackground"
+                android:hint="// Write Kotlin code..."
+                android:textSize="15sp"
+                android:includeFontPadding="false"
+                android:lineSpacingExtra="0dp"
+                android:lineSpacingMultiplier="1.0"
+                android:scrollbars="vertical"
+                android:overScrollMode="always" />
+
+        </LinearLayout>
+
+        <!-- Preview -->
+        <LinearLayout
+            android:id="@+id/previewArea"
+            android:layout_width="match_parent"
+            android:layout_height="180dp"
+            android:orientation="vertical">
+
+            <LinearLayout
+                android:id="@+id/previewHeader"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:gravity="center_vertical"
+                android:paddingStart="16dp"
+                android:paddingEnd="8dp">
+
+                <TextView
+                    android:id="@+id/previewTitle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Preview"
+                    android:textSize="16sp"
+                    android:textStyle="bold" />
 
                 <Button
-                    android:id="@+id/homeMoreButton"
-                    android:layout_width="48dp"
-                    android:layout_height="44dp"
-                    android:text="⋯"
-                    android:textSize="24sp"
+                    android:id="@+id/swapButton"
+                    android:layout_width="76dp"
+                    android:layout_height="40dp"
+                    android:text="⇅ 入替"
                     android:minWidth="0dp"
                     android:background="@drawable/rounded_button" />
-            </LinearLayout<LinearLayout
+
+                <Button
+                    android:id="@+id/fullscreenButton"
+                    android:layout_width="48dp"
+                    android:layout_height="40dp"
+                    android:text="⛶"
+                    android:textSize="20sp"
+                    android:minWidth="0dp"
+                    android:background="@drawable/rounded_button" />
+
+            </LinearLayout>
+
+            <FrameLayout
+                android:id="@+id/previewContainer"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:background="?android:colorBackground" />
+
+        </LinearLayout>
+
+        <!-- Home Tab -->
+        <LinearLayout
+            android:id="@+id/homeTab"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:visibility="visible"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp">
+
+            <TextView
+                android:id="@+id/homeProjectTitle"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:gravity="center_vertical"
+                android:text="🗂️ App"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1">
+
+                <LinearLayout
+                    android:id="@+id/homeFileList"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+
+            </ScrollView>
+        </LinearLayout>
+
+        <!-- Project Tab -->
+        <LinearLayout
+            android:id="@+id/projectTab"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp">
+
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
                 android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="最近のプロジェクト"
+                    android:textSize="22sp"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/projectTabBackButton"
+                    android:layout_width="76dp"
+                    android:layout_height="42dp"
+                    android:text="戻る"
+                    android:minWidth="0dp"
+                    android:background="@drawable/rounded_button" />
+
             </LinearLayout>
+
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1">
+
+                <LinearLayout
+                    android:id="@+id/projectList"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+
+            </ScrollView>
+
+        </LinearLayout>
+
+        <!-- File Tab -->
+        <LinearLayout
+            android:id="@+id/fileTab"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/fileTabTitle"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="ファイル"
+                    android:textSize="22sp"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/fileTabBackButton"
+                    android:layout_width="76dp"
+                    android:layout_height="42dp"
+                    android:text="戻る"
+                    android:minWidth="0dp"
+                    android:background="@drawable/rounded_button" />
+
+            </LinearLayout>
+
+            <!-- File Browser -->
+            <LinearLayout
+                android:id="@+id/fileBrowserPanel"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/filePathView"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="📁 フォルダ"
+                    android:textSize="13sp"
+                    android:maxLines="2"
+                    android:ellipsize="end"
+                    android:paddingStart="8dp"
+                    android:paddingEnd="8dp"
+                    android:paddingBottom="8dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:gravity="center_vertical">
+
+                    <Button
+                        android:id="@+id/fileNewButton"
+                        android:layout_width="0dp"
+                        android:layout_height="46dp"
+                        android:layout_weight="1"
+                        android:text="＋ ファイル"
+                        android:minWidth="0dp"
+                        android:background="@drawable/rounded_button" />
+
+                    <Button
+                        android:id="@+id/fileNewFolderButton"
+                        android:layout_width="0dp"
+                        android:layout_height="46dp"
+                        android:layout_weight="1"
+                        android:layout_marginStart="4dp"
+                        android:text="＋ フォルダ"
+                        android:minWidth="0dp"
+                        android:background="@drawable/rounded_button" />
+
+                    <Button
+                        android:id="@+id/fileUpButton"
+                        android:layout_width="60dp"
+                        android:layout_height="46dp"
+                        android:layout_marginStart="4dp"
+                        android:text="↑"
+                        android:minWidth="0dp"
+                        android:background="@drawable/rounded_button" />
+
+                    <Button
+                        android:id="@+id/fileRefreshButton"
+                        android:layout_width="60dp"
+                        android:layout_height="46dp"
+                        android:layout_marginStart="4dp"
+                        android:text="↻"
+                        android:minWidth="0dp"
+                        android:background="@drawable/rounded_button" />
+
+                </LinearLayout>
+
+                <ScrollView
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1">
+
+                    <LinearLayout
+                        android:id="@+id/fileList"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical" />
+
+                </ScrollView>
+
+            </LinearLayout>
+
+            <!-- GitHub-style Create New File -->
+            <LinearLayout
+                android:id="@+id/fileCreatePanel"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Create new file"
+                    android:textSize="20sp"
+                    android:textStyle="bold"
+                    android:paddingTop="6dp"
+                    android:paddingBottom="4dp" />
+
+                <TextView
+                    android:id="@+id/fileCreateLocation"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="作成先: フォルダ"
+                    android:textSize="13sp"
+                    android:maxLines="2"
+                    android:ellipsize="end"
+                    android:paddingBottom="6dp" />
+
+                <EditText
+                    android:id="@+id/fileCreatePathInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:hint="ファイル名 または パス (例: src/MainActivity.kt)"
+                    android:singleLine="true"
+                    android:inputType="text"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="ファイルの内容"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:paddingTop="10dp"
+                    android:paddingBottom="4dp" />
+
+                <EditText
+                    android:id="@+id/fileCreateContentInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="0dp"
+                    android:layout_weight="1"
+                    android:gravity="top|start"
+                    android:fontFamily="monospace"
+                    android:inputType="textMultiLine|textNoSuggestions"
+                    android:padding="12dp"
+                    android:background="?android:colorBackground"
+                    android:textSize="14sp"
+                    android:scrollbars="vertical"
+                    android:overScrollMode="always" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="56dp"
+                    android:gravity="center_vertical">
+
+                    <Button
+                        android:id="@+id/fileCreateCancelButton"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:text="キャンセル"
+                        android:minWidth="0dp"
+                        android:background="@drawable/rounded_button" />
+
+                    <Button
+                        android:id="@+id/fileCreateButton"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:layout_marginStart="6dp"
+                        android:text="ファイルを作成"
+                        android:minWidth="0dp"
+                        android:background="@drawable/rounded_button" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+        <!-- History Tab -->
+        <LinearLayout
+            android:id="@+id/historyTab"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:orientation="vertical"
+            android:visibility="gone"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="履歴"
+                    android:textSize="22sp"
+                    android:textStyle="bold" />
+
+                <Button
+                    android:id="@+id/historyClearButton"
+                    android:layout_width="86dp"
+                    android:layout_height="42dp"
+                    android:text="履歴を削除"
+                    android:textSize="12sp"
+                    android:minWidth="0dp"
+                    android:background="@drawable/rounded_button" />
+
+                <Button
+                    android:id="@+id/historyTabBackButton"
+                    android:layout_width="68dp"
+                    android:layout_height="42dp"
+                    android:layout_marginStart="4dp"
+                    android:text="戻る"
+                    android:minWidth="0dp"
+                    android:background="@drawable/rounded_button" />
+
+            </LinearLayout>
+
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1">
+
+                <TextView
+                    android:id="@+id/historyText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="15sp"
+                    android:paddingTop="8dp"
+                    android:paddingBottom="24dp" />
+
+            </ScrollView>
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+    <!-- Bottom Header -->
+
+    <LinearLayout
+        android:id="@+id/bottomHeader"
+        android:layout_width="match_parent"
+        android:layout_height="52dp"
+        android:gravity="center_vertical"
+        android:paddingStart="16dp"
+        android:paddingEnd="8dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="KStudio"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:ellipsize="end" />
+
+        <Button
+            android:id="@+id/undoButton"
+            android:layout_width="46dp"
+            android:layout_height="42dp"
+            android:text="↶"
+            android:textSize="21sp"
+            android:contentDescription="Undo"
+            android:minWidth="0dp"
+            android:background="@drawable/rounded_button" />
+
+        <Button
+            android:id="@+id/redoButton"
+            android:layout_width="46dp"
+            android:layout_height="42dp"
+            android:text="↷"
+            android:textSize="21sp"
+            android:contentDescription="Redo"
+            android:minWidth="0dp"
+            android:background="@drawable/rounded_button" />
+
+        <Button
+            android:id="@+id/saveButton"
+            android:layout_width="70dp"
+            android:layout_height="42dp"
+            android:text="保存"
+            android:minWidth="0dp"
+            android:background="@drawable/rounded_button" />
+
+        <Button
+            android:id="@+id/runButton"
+            android:layout_width="78dp"
+            android:layout_height="42dp"
+            android:text="▶ Run"
+            android:minWidth="0dp"
+            android:background="@drawable/rounded_button" />
+
+    </LinearLayout>
+
+</LinearLayout>
