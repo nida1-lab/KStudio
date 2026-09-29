@@ -45,6 +45,12 @@ class MainActivity : Activity() {
     private lateinit var editorContainer: View
     private lateinit var bottomHeader: View
     private lateinit var previewHeader: View
+    private lateinit var previewArea: View
+    private lateinit var projectTab: View
+    private lateinit var projectList: LinearLayout
+    private lateinit var previewTitle: TextView
+    private lateinit var swapButton: Button
+    private lateinit var projectTabBackButton: Button
     private lateinit var fullscreenButton: Button
     private lateinit var undoButton: Button
     private lateinit var redoButton: Button
@@ -66,6 +72,7 @@ class MainActivity : Activity() {
     private var historyApplying = false
     private var isDirty = false
     private var fullscreen = false
+    private var editorPreviewSwapped = false
 
     private var folderRootUri: Uri? = null
     private var currentFolderUri: Uri? = null
@@ -110,6 +117,13 @@ class MainActivity : Activity() {
 
         previewHeader =
             findViewById(R.id.previewHeader)
+
+        previewArea = findViewById(R.id.previewArea)
+        projectTab = findViewById(R.id.projectTab)
+        projectList = findViewById(R.id.projectList)
+        previewTitle = findViewById(R.id.previewTitle)
+        swapButton = findViewById(R.id.swapButton)
+        projectTabBackButton = findViewById(R.id.projectTabBackButton)
 
         val runButton =
             findViewById<Button>(
@@ -387,10 +401,18 @@ class MainActivity : Activity() {
             )
         }
 
+        swapButton.setOnClickListener {
+            swapEditorAndPreview()
+        }
+
+        projectTabBackButton.setOnClickListener {
+            showHomeTab()
+        }
+
         // Top Navigation
 
         topHomeButton.setOnClickListener {
-            updatePreview()
+            showHomeTab()
         }
 
         topFolderButton.setOnClickListener {
@@ -528,7 +550,7 @@ class MainActivity : Activity() {
 
                 setOnClickListener {
 
-                    updatePreview()
+                    showHomeTab()
 
                     popup.dismiss()
                 }
@@ -2219,66 +2241,306 @@ class MainActivity : Activity() {
 
         if (fullscreen) {
 
-            topMenuBar.visibility =
-                View.GONE
+            topMenuBar.visibility = View.GONE
+            projectBar.visibility = View.GONE
+            searchBar.visibility = View.GONE
+            editorContainer.visibility = View.GONE
+            bottomHeader.visibility = View.GONE
+            projectTab.visibility = View.GONE
+            previewArea.visibility = View.VISIBLE
 
-            projectBar.visibility =
-                View.GONE
-
-            searchBar.visibility =
-                View.GONE
-
-            editorContainer.visibility =
-                View.GONE
-
-            bottomHeader.visibility =
-                View.GONE
-
-            previewHeader.visibility =
-                View.VISIBLE
-
-            previewContainer.layoutParams =
-                previewContainer.layoutParams.apply {
-
-                    height =
-                        ViewGroup.LayoutParams.MATCH_PARENT
+            previewArea.layoutParams =
+                previewArea.layoutParams.apply {
+                    width = ViewGroup.LayoutParams.MATCH_PARENT
+                    height = ViewGroup.LayoutParams.MATCH_PARENT
                 }
 
-            fullscreenButton.text =
-                "✕"
+            fullscreenButton.text = "✕"
 
         } else {
 
-            topMenuBar.visibility =
-                View.VISIBLE
+            topMenuBar.visibility = View.VISIBLE
+            projectBar.visibility = View.VISIBLE
+            searchBar.visibility = View.VISIBLE
+            bottomHeader.visibility = View.VISIBLE
+            editorContainer.visibility = View.VISIBLE
+            previewArea.visibility = View.VISIBLE
 
-            projectBar.visibility =
-                View.VISIBLE
-
-            searchBar.visibility =
-                View.VISIBLE
-
-            editorContainer.visibility =
-                View.VISIBLE
-
-            bottomHeader.visibility =
-                View.VISIBLE
-
-            previewHeader.visibility =
-                View.VISIBLE
-
-            previewContainer.layoutParams =
-                previewContainer.layoutParams.apply {
-
-                    height =
-                        dpToPx(180)
+            previewArea.layoutParams =
+                previewArea.layoutParams.apply {
+                    width = ViewGroup.LayoutParams.MATCH_PARENT
+                    height = dpToPx(180)
                 }
 
-            fullscreenButton.text =
-                "⛶"
+            fullscreenButton.text = "⛶"
+
+            applyEditorPreviewOrder()
+        }
+    }
+
+    // Tabs
+
+    private fun showHomeTab() {
+
+        if (fullscreen) {
+            togglePreviewFullscreen()
         }
 
-        previewContainer.requestLayout()
+        projectTab.visibility = View.GONE
+        editorContainer.visibility = View.VISIBLE
+        previewArea.visibility = View.VISIBLE
+        bottomHeader.visibility = View.VISIBLE
+        searchBar.visibility = View.VISIBLE
+        projectBar.visibility = View.VISIBLE
+        previewTitle.text = "Preview"
+
+        applyEditorPreviewOrder()
+        updatePreview()
+    }
+
+    private fun swapEditorAndPreview() {
+
+        if (fullscreen || projectTab.visibility == View.VISIBLE) {
+            return
+        }
+
+        editorPreviewSwapped = !editorPreviewSwapped
+        applyEditorPreviewOrder()
+    }
+
+    private fun applyEditorPreviewOrder() {
+
+        val parent = editorContainer.parent as? LinearLayout
+            ?: return
+
+        parent.removeView(editorContainer)
+        parent.removeView(previewArea)
+
+        val editorParams =
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                0
+            ).apply {
+                weight = 1f
+            }
+
+        val previewParams =
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dpToPx(180)
+            )
+
+        if (editorPreviewSwapped) {
+            parent.addView(previewArea, 0, previewParams)
+            parent.addView(editorContainer, 1, editorParams)
+        } else {
+            parent.addView(editorContainer, 0, editorParams)
+            parent.addView(previewArea, 1, previewParams)
+        }
+    }
+
+    // Projects Tab
+
+    private fun showProjects() {
+
+        if (fullscreen) {
+            togglePreviewFullscreen()
+        }
+
+        projectTab.visibility = View.VISIBLE
+        editorContainer.visibility = View.GONE
+        previewArea.visibility = View.GONE
+        bottomHeader.visibility = View.GONE
+        searchBar.visibility = View.GONE
+        projectBar.visibility = View.GONE
+
+        projectList.removeAllViews()
+
+        if (recentFolders.isEmpty()) {
+
+            val empty =
+                TextView(this).apply {
+                    text =
+                        "まだプロジェクトがありません。\n\n" +
+                        "フォルダを開くと、ここに最近のプロジェクトが表示されます。"
+                    textSize = 16f
+                    setTextColor(primaryTextColor())
+                    setPadding(
+                        dpToPx(8),
+                        dpToPx(24),
+                        dpToPx(8),
+                        dpToPx(24)
+                    )
+                }
+
+            projectList.addView(empty)
+            return
+        }
+
+        recentFolders.forEach { uri ->
+
+            val card =
+                LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(
+                        dpToPx(14),
+                        dpToPx(14),
+                        dpToPx(14),
+                        dpToPx(14)
+                    )
+                    setBackgroundColor(surfaceColor())
+                    isClickable = true
+                    isFocusable = true
+                }
+
+            val name =
+                TextView(this).apply {
+                    text =
+                        getFolderName(uri).ifBlank {
+                            "選択したフォルダ"
+                        }
+                    textSize = 18f
+                    setTextColor(primaryTextColor())
+                }
+
+            val updated =
+                TextView(this).apply {
+                    text =
+                        "最終更新日時: " +
+                        getFolderLastModified(uri)
+                    textSize = 13f
+                    setTextColor(secondaryTextColor())
+                    setPadding(
+                        0,
+                        dpToPx(5),
+                        0,
+                        0
+                    )
+                }
+
+            val divider =
+                TextView(this).apply {
+                    text =
+                        "────────────────────────"
+                    textSize = 12f
+                    setTextColor(secondaryTextColor())
+                    setPadding(
+                        0,
+                        dpToPx(8),
+                        0,
+                        0
+                    )
+                }
+
+            card.addView(name)
+            card.addView(updated)
+            card.addView(divider)
+
+            card.setOnClickListener {
+                openRecentProject(uri)
+            }
+
+            projectList.addView(
+                card,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+                ).apply {
+                    bottomMargin = dpToPx(6)
+                }
+            )
+        }
+    }
+
+    private fun openRecentProject(uri: Uri) {
+
+        folderRootUri = uri
+        currentFolderUri =
+            DocumentsContract.buildDocumentUriUsingTree(
+                uri,
+                DocumentsContract.getTreeDocumentId(uri)
+            )
+
+        currentFolderStack.clear()
+        currentFileUri = null
+        currentFileName = "新規ファイル"
+        isDirty = false
+
+        undoStack.clear()
+        redoStack.clear()
+
+        historyApplying = true
+        codeEditor.setText("")
+        historyApplying = false
+
+        updateEditorHeader()
+        updateHistoryButtons()
+        highlightCode()
+        lineNumbers.invalidate()
+
+        showHomeTab()
+
+        Toast.makeText(
+            this,
+            "プロジェクトを開きました",
+            Toast.LENGTH_SHORT
+        ).show()
+    }
+
+    private fun getFolderLastModified(uri: Uri): String {
+
+        return try {
+
+            val documentUri =
+                DocumentsContract.buildDocumentUriUsingTree(
+                    uri,
+                    DocumentsContract.getTreeDocumentId(uri)
+                )
+
+            contentResolver.query(
+                documentUri,
+                arrayOf(
+                    DocumentsContract.Document.COLUMN_LAST_MODIFIED
+                ),
+                null,
+                null,
+                null
+            )?.use { cursor ->
+
+                if (cursor.moveToFirst()) {
+
+                    val index =
+                        cursor.getColumnIndex(
+                            DocumentsContract.Document.COLUMN_LAST_MODIFIED
+                        )
+
+                    if (
+                        index >= 0 &&
+                        !cursor.isNull(index)
+                    ) {
+
+                        SimpleDateFormat(
+                            "yyyy/MM/dd HH:mm",
+                            Locale.getDefault()
+                        ).format(
+                            Date(
+                                cursor.getLong(index)
+                            )
+                        )
+
+                    } else {
+                        "不明"
+                    }
+
+                } else {
+                    "不明"
+                }
+
+            } ?: "不明"
+
+        } catch (_: Exception) {
+            "不明"
+        }
     }
 
     // Run
@@ -2630,71 +2892,6 @@ class MainActivity : Activity() {
                 .create()
 
         dialog.show()
-    }
-
-    // Projects
-
-    private fun showProjects() {
-
-        if (recentFolders.isEmpty()) {
-
-            Toast.makeText(
-                this,
-                "まだプロジェクトがありません",
-                Toast.LENGTH_SHORT
-            ).show()
-
-            return
-        }
-
-        val names =
-            recentFolders.map { uri ->
-                getFolderName(uri).ifBlank {
-                    "選択したフォルダ"
-                }
-            }.toTypedArray()
-
-        android.app.AlertDialog.Builder(this)
-            .setTitle("最近のプロジェクト")
-            .setItems(names) { _, which ->
-
-                val uri = recentFolders[which]
-
-                folderRootUri = uri
-                currentFolderUri =
-                    DocumentsContract.buildDocumentUriUsingTree(
-                        uri,
-                        DocumentsContract.getTreeDocumentId(uri)
-                    )
-
-                currentFolderStack.clear()
-                currentFileUri = null
-                currentFileName = "新規ファイル"
-                isDirty = false
-
-                undoStack.clear()
-                redoStack.clear()
-
-                historyApplying = true
-                codeEditor.setText("")
-                historyApplying = false
-
-                updateEditorHeader()
-                updateHistoryButtons()
-                highlightCode()
-                lineNumbers.invalidate()
-
-                Toast.makeText(
-                    this,
-                    "プロジェクトを開きました",
-                    Toast.LENGTH_SHORT
-                ).show()
-            }
-            .setNegativeButton(
-                "閉じる",
-                null
-            )
-            .show()
     }
 
     // Error UI
