@@ -1771,8 +1771,7 @@ class MainActivity : Activity() {
 
         val lineStart =
             text.lastIndexOf(
-                "
-",
+                "\n",
                 (cursor - 1).coerceAtLeast(0)
             ) + 1
 
@@ -1799,8 +1798,7 @@ class MainActivity : Activity() {
             }
 
         insertTextAtCursor(
-            "
-" +
+            "\n" +
                 indentation +
                 extra
         )
@@ -2032,8 +2030,7 @@ class MainActivity : Activity() {
             val ch = source[index]
             val next = source.getOrNull(index + 1)
 
-            if (ch == '
-') {
+            if (ch == '\n') {
 
                 line++
                 inLineComment = false
@@ -2069,7 +2066,7 @@ class MainActivity : Activity() {
                 continue
             }
 
-            if (!inString && ch == ''' && !escaped) {
+            if (!inString && ch == '\'' && !escaped) {
                 inChar = !inChar
                 index++
                 continue
@@ -2185,22 +2182,15 @@ class MainActivity : Activity() {
         val info =
             TextView(this).apply {
                 text =
-                    "KStudio static check
-
-" +
+                    "KStudio static check\n\n" +
                     "ファイル: " +
                     currentFileName +
-                    "
-行数: " +
+                    "\n行数: " +
                     source.lines().size +
-                    "
-文字数: " +
+                    "\n文字数: " +
                     source.length +
-                    "
-
-" +
-                    "括弧・文字列の基本チェックに成功しました。
-" +
+                    "\n\n" +
+                    "括弧・文字列の基本チェックに成功しました。\n" +
                     "実際のAndroid APKビルドはGitHub Actions側で実行します。"
                 textSize = 15f
                 setTextColor(
