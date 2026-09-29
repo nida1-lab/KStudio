@@ -597,6 +597,11 @@ class MainActivity : Activity() {
             undoStack.clear()
             redoStack.clear()
 
+            historyApplying = true
+            codeEditor.setText("")
+            historyApplying = false
+            highlightCode()
+
             saveRecentFolder(uri)
             updateEditorHeader()
             updateHistoryButtons()
@@ -1269,27 +1274,200 @@ class MainActivity : Activity() {
     ) {
 
         val options =
-            arrayOf(
-                "名前変更",
-                "削除",
-                "キャンセル"
-            )
+            if (entry.isDirectory) {
+                arrayOf(
+                    "名前変更",
+                    "削除",
+                    "キャンセル"
+                )
+            } else {
+                arrayOf(
+                    "内容をコピー",
+                    "クリップボードで置換",
+                    "名前変更",
+                    "削除",
+                    "キャンセル"
+                )
+            }
 
         android.app.AlertDialog.Builder(this)
             .setTitle(entry.name)
             .setItems(options) { _, which ->
 
-                when (which) {
+                if (entry.isDirectory) {
 
-                    0 -> askRename(
-                        entry,
-                        refresh
-                    )
+                    when (which) {
 
-                    1 -> askDelete(
-                        entry,
-                        refresh
-                    )
+                        0 -> askRename(
+                            entry,
+                            refresh
+                        )
+
+                        1 -> askDelete(
+                            entry,
+                            refresh
+                        )
+                    }
+
+                } else {
+
+                    when (which) {
+
+                        0 -> copyFileContent(entry)
+
+                        1 -> replaceFileFromClipboard(
+                            entry,
+                            refresh
+                        )
+
+                        2 -> askRename(
+                            entry,
+                            refresh
+                        )
+
+                        3 -> askDelete(
+                            entry,
+                            refresh
+                        )
+                    }
+                }
+            }
+            .show()
+    }
+
+    private fun copyFileContent(
+        entry: ManagedEntry
+    ) {
+
+        try {
+
+            val content =
+                contentResolver
+                    .openInputStream(entry.uri)
+                    ?.bufferedReader()
+                    ?.use { it.readText() }
+                    ?: ""
+
+            val clipboard =
+                getSystemService(
+                    Context.CLIPBOARD_SERVICE
+                ) as ClipboardManager
+
+            clipboard.setPrimaryClip(
+                ClipData.newPlainText(
+                    "KStudio File",
+                    content
+                )
+            )
+
+            Toast.makeText(
+                this,
+                "ファイル内容をコピーしました",
+                Toast.LENGTH_SHORT
+            ).show()
+
+        } catch (_: Exception) {
+
+            Toast.makeText(
+                this,
+                "コピーに失敗しました",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+    }
+
+    private fun replaceFileFromClipboard(
+        entry: ManagedEntry,
+        refresh: () -> Unit
+    ) {
+
+        val clipboard =
+            getSystemService(
+                Context.CLIPBOARD_SERVICE
+            ) as ClipboardManager
+
+        if (!clipboard.hasPrimaryClip()) {
+
+            Toast.makeText(
+                this,
+                "クリップボードが空です",
+                Toast.LENGTH_SHORT
+            ).show()
+
+            return
+        }
+
+        val clip = clipboard.primaryClip
+            ?: return
+
+        val value =
+            clip.getItemAt(0)
+                .coerceToText(this)
+                .toString()
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle("ファイルを置換しますか？")
+            .setMessage(entry.name)
+            .setNegativeButton(
+                "キャンセル",
+                null
+            )
+            .setPositiveButton(
+                "置換"
+            ) { _, _ ->
+
+                try {
+
+                    contentResolver
+                        .openOutputStream(
+                            entry.uri,
+                            "wt"
+                        )
+                        ?.use { stream ->
+                            stream.write(
+                                value.toByteArray(
+                                    Charsets.UTF_8
+                                )
+                            )
+                        }
+                        ?: throw IllegalStateException(
+                            "保存先を開けません"
+                        )
+
+                    if (currentFileUri == entry.uri) {
+
+                        historyApplying = true
+                        codeEditor.setText(value)
+                        historyApplying = false
+
+                        undoStack.clear()
+                        redoStack.clear()
+                        isDirty = false
+
+                        updateEditorHeader()
+                        updateHistoryButtons()
+                        highlightCode()
+                        lineNumbers.invalidate()
+                    }
+
+                    refresh()
+
+                    Toast.makeText(
+                        this,
+                        "ファイルを置換しました",
+                        Toast.LENGTH_SHORT
+                    ).show()
+
+                } catch (e: Exception) {
+
+                    historyApplying = false
+
+                    Toast.makeText(
+                        this,
+                        "置換に失敗しました: " +
+                            (e.message ?: "unknown"),
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
             }
             .show()
@@ -2302,24 +2480,57 @@ class MainActivity : Activity() {
 
     private fun showProjects() {
 
-        val projectName =
-            findViewById<TextView>(
-                R.id.projectName
-            ).text.toString()
+        if (recentFolders.isEmpty()) {
 
-        android.app.AlertDialog.Builder(
-            this
-        )
-            .setTitle("プロジェクト一覧")
-            .setItems(
-                arrayOf(
-                    projectName
-                )
-            ) { _, _ ->
+            Toast.makeText(
+                this,
+                "まだプロジェクトがありません",
+                Toast.LENGTH_SHORT
+            ).show()
+
+            return
+        }
+
+        val names =
+            recentFolders.map { uri ->
+                getFolderName(uri).ifBlank {
+                    "選択したフォルダ"
+                }
+            }.toTypedArray()
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle("最近のプロジェクト")
+            .setItems(names) { _, which ->
+
+                val uri = recentFolders[which]
+
+                folderRootUri = uri
+                currentFolderUri =
+                    DocumentsContract.buildDocumentUriUsingTree(
+                        uri,
+                        DocumentsContract.getTreeDocumentId(uri)
+                    )
+
+                currentFolderStack.clear()
+                currentFileUri = null
+                currentFileName = "新規ファイル"
+                isDirty = false
+
+                undoStack.clear()
+                redoStack.clear()
+
+                historyApplying = true
+                codeEditor.setText("")
+                historyApplying = false
+
+                updateEditorHeader()
+                updateHistoryButtons()
+                highlightCode()
+                lineNumbers.invalidate()
 
                 Toast.makeText(
                     this,
-                    "プロジェクトを選択しました",
+                    "プロジェクトを開きました",
                     Toast.LENGTH_SHORT
                 ).show()
             }
