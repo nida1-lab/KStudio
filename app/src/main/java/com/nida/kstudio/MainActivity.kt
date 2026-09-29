@@ -204,6 +204,8 @@ class MainActivity : Activity() {
                 R.id.menuButton
             )
 
+        menuButton.setTextColor(primaryTextColor())
+
         val topHomeButton = findViewById<TextView>(R.id.topHomeButton)
         val topFolderButton = findViewById<TextView>(R.id.topFolderButton)
         val topHistoryButton = findViewById<TextView>(R.id.topHistoryButton)
