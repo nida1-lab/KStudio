@@ -159,49 +159,42 @@ class MainActivity : Activity() {
 
         // Auto Pair
 
-        codeEditor.setOnKeyListener {
-                _, keyCode, event ->
-
-            if (
-                event.action !=
-                KeyEvent.ACTION_DOWN
-            ) {
+        codeEditor.setOnKeyListener { _, keyCode, event ->
+            if (event.action != KeyEvent.ACTION_DOWN) {
                 return@setOnKeyListener false
             }
 
-            if (
-                keyCode ==
-                KeyEvent.KEYCODE_DEL
-            ) {
-                return@setOnKeyListener true
-                    handleDeletePair()
+            if (keyCode == KeyEvent.KEYCODE_DEL) {
+                return@setOnKeyListener handleDeletePair()
             }
 
-            val pair =
-                when (
-                    event.unicodeChar.toChar()
-                ) {
+            val typed = event.unicodeChar.toChar()
+            val cursor = codeEditor.selectionStart.coerceAtLeast(0)
+            val next = codeEditor.text.toString().getOrNull(cursor)
 
-                    '{' -> '}'
-                    '(' -> ')'
-                    '[' -> ']'
-                    '"' -> '"'
-                    '\'' -> '\''
+            // Skip existing closing character
+            if (
+                (typed == '}' || typed == ')' || typed == ']' || typed == '"' || typed == '\'') &&
+                next == typed &&
+                codeEditor.selectionStart == codeEditor.selectionEnd
+            ) {
+                codeEditor.setSelection(cursor + 1)
+                return@setOnKeyListener true
+            }
 
-                    else -> null
-                }
+            val pair = when (typed) {
+                '{' -> '}'
+                '(' -> ')'
+                '[' -> ']'
+                '"' -> '"'
+                '\'' -> '\''
+                else -> null
+            }
 
             if (pair != null) {
-
-                insertPair(
-                    event.unicodeChar.toChar(),
-                    pair
-                )
-
+                insertPair(typed, pair)
                 true
-
             } else {
-
                 false
             }
         }
