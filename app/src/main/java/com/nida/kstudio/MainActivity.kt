@@ -206,6 +206,17 @@ class MainActivity : Activity() {
         saveButton = findViewById(R.id.saveButton)
 
         loadRecentFolders()
+
+        projectName =
+            getSharedPreferences(
+                "KStudio",
+                Context.MODE_PRIVATE
+            )
+                .getString(
+                    "projectName",
+                    "App"
+                ) ?: "App"
+
         applySystemTheme()
         updateHistoryButtons()
         updateEditorHeader()
@@ -658,7 +669,25 @@ class MainActivity : Activity() {
                 true
             )
 
-        // Home
+        private fun showEditorScreen() {
+
+        homeTab.visibility = View.GONE
+        editorContainer.visibility = View.VISIBLE
+        previewArea.visibility = View.VISIBLE
+        projectTab.visibility = View.GONE
+        fileTab.visibility = View.GONE
+        historyTab.visibility = View.GONE
+        bottomHeader.visibility = View.VISIBLE
+        searchBar.visibility = View.VISIBLE
+        projectBar.visibility = View.VISIBLE
+
+        previewTitle.text = "Preview"
+
+        applyEditorPreviewOrder()
+        updatePreview()
+    }
+
+    // Home
 
         val homeButton =
             Button(this).apply {
@@ -842,8 +871,19 @@ class MainActivity : Activity() {
 
                 projectName = name
 
+                getSharedPreferences(
+                    "KStudio",
+                    Context.MODE_PRIVATE
+                )
+                    .edit()
+                    .putString(
+                        "projectName",
+                        projectName
+                    )
+                    .apply()
+
                 createInitialProjectFile {
-                    showHomeTab()
+                    showEditorScreen()
 
                     Toast.makeText(
                         this,
@@ -929,9 +969,21 @@ class MainActivity : Activity() {
                     "初期ファイルを書き込めませんでした"
                 )
 
-            currentFileUri = null
-            currentFileName = "新規ファイル"
+            historyApplying = true
+            codeEditor.setText(starter)
+            historyApplying = false
+
+            currentFileUri = fileUri
+            currentFileName = "MainActivity.kt"
             isDirty = false
+
+            undoStack.clear()
+            redoStack.clear()
+
+            updateEditorHeader()
+            updateHistoryButtons()
+            highlightCode()
+            lineNumbers.invalidate()
 
             onReady()
 
