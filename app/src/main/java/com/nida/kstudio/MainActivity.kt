@@ -1022,11 +1022,7 @@ class MainActivity : Activity() {
 
     private fun showSaveCommitPanel() {
         if (currentFileUri == null) {
-            Toast.makeText(
-                this,
-                "No file to save",
-                Toast.LENGTH_SHORT
-            ).show()
+            Toast.makeText(this, "No file to save", Toast.LENGTH_SHORT).show()
             return
         }
 
@@ -1037,6 +1033,10 @@ class MainActivity : Activity() {
         saveCommitFileNameInput.setText(currentFileName)
         saveCommitMessageInput.setText("")
 
+        topMenuBar.visibility = View.GONE
+        projectBar.visibility = View.GONE
+        searchBar.visibility = View.GONE
+        bottomHeader.visibility = View.GONE
         homeTab.visibility = View.GONE
         editorContainer.visibility = View.GONE
         previewArea.visibility = View.GONE
@@ -1044,105 +1044,120 @@ class MainActivity : Activity() {
         fileTab.visibility = View.GONE
         historyTab.visibility = View.GONE
         saveCommitPanel.visibility = View.VISIBLE
-        bottomHeader.visibility = View.GONE
-        searchBar.visibility = View.GONE
-        projectBar.visibility = View.VISIBLE
     }
 
     private fun buildSaveCommitPanel() {
-        saveCommitPanel = LinearLayout(this)
-        saveCommitPanel.orientation = LinearLayout.VERTICAL
-        saveCommitPanel.setPadding(
-            dpToPx(16),
-            dpToPx(8),
-            dpToPx(16),
-            dpToPx(16)
-        )
-
-        val title = TextView(this)
-        title.text = "編集を保存"
-        title.textSize = 22f
-        saveCommitPanel.addView(title)
-
-        val fileLabel = TextView(this)
-        fileLabel.text = "ファイル名"
-        fileLabel.setPadding(0, dpToPx(18), 0, dpToPx(6))
-        saveCommitPanel.addView(fileLabel)
-
-        saveCommitFileNameInput = EditText(this)
-        saveCommitFileNameInput.setSingleLine(true)
-        saveCommitFileNameInput.isEnabled = false
-        saveCommitPanel.addView(
-            saveCommitFileNameInput,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dpToPx(52)
-            )
-        )
-
-        val messageLabel = TextView(this)
-        messageLabel.text = "編集内容の説明（任意）"
-        messageLabel.setPadding(0, dpToPx(18), 0, dpToPx(6))
-        saveCommitPanel.addView(messageLabel)
-
-        saveCommitMessageInput = EditText(this)
-        saveCommitMessageInput.hint = "編集内容を入力"
-        saveCommitMessageInput.gravity = Gravity.TOP or Gravity.START
-        saveCommitMessageInput.minLines = 4
-        saveCommitPanel.addView(
-            saveCommitMessageInput,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dpToPx(120)
-            )
-        )
-
-        val spacer = View(this)
-        saveCommitPanel.addView(
-            spacer,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                0,
-                1f
-            )
-        )
-
-        val buttons = LinearLayout(this)
-        buttons.orientation = LinearLayout.HORIZONTAL
-
-        saveCommitCancelButton = Button(this)
-        saveCommitCancelButton.text = "キャンセル"
-        saveCommitCancelButton.setOnClickListener {
-            showEditorScreen()
+        saveCommitPanel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dpToPx(16), dpToPx(10), dpToPx(16), dpToPx(16))
+            setBackgroundColor(surfaceColor())
         }
 
-        saveCommitButton = Button(this)
-        saveCommitButton.text = "保存する"
-        saveCommitButton.setOnClickListener {
-            saveEditCommit()
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
         }
 
-        buttons.addView(
-            saveCommitCancelButton,
-            LinearLayout.LayoutParams(
-                0,
-                dpToPx(48),
-                1f
-            )
+        val backButton = Button(this).apply {
+            text = "←"
+            textSize = 22f
+            contentDescription = "戻る"
+            styleKStudioButton(this)
+            setPadding(dpToPx(8), 0, dpToPx(8), 0)
+            setOnClickListener {
+                saveCommitPanel.visibility = View.GONE
+                showEditorScreen()
+            }
+        }
+        header.addView(backButton, LinearLayout.LayoutParams(dpToPx(54), dpToPx(48)))
+
+        header.addView(
+            TextView(this).apply {
+                text = "保存"
+                textSize = 21f
+                setTextColor(primaryTextColor())
+                setTypeface(null, android.graphics.Typeface.BOLD)
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dpToPx(12), 0, 0, 0)
+            },
+            LinearLayout.LayoutParams(0, dpToPx(48), 1f)
         )
 
-        buttons.addView(
-            saveCommitButton,
-            LinearLayout.LayoutParams(
-                0,
-                dpToPx(48),
-                1f
-            ).apply {
-                marginStart = dpToPx(6)
+        saveCommitButton = Button(this).apply {
+            text = "保存"
+            textSize = 15f
+            styleKStudioButton(this)
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                setColor(Color.rgb(40, 170, 90))
+                cornerRadius = dpToPx(10).toFloat()
+            }
+            setTextColor(Color.WHITE)
+            setPadding(dpToPx(12), 0, dpToPx(12), 0)
+            setOnClickListener { saveEditCommit() }
+        }
+        header.addView(saveCommitButton, LinearLayout.LayoutParams(dpToPx(88), dpToPx(48)))
+        saveCommitPanel.addView(header)
+
+        val divider = View(this).apply {
+            setBackgroundColor(if (isDarkMode()) Color.rgb(70, 70, 74) else Color.rgb(220, 224, 228))
+        }
+        saveCommitPanel.addView(
+            divider,
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dpToPx(1)).apply {
+                topMargin = dpToPx(8)
+                bottomMargin = dpToPx(18)
             }
         )
 
-        saveCommitPanel.addView(buttons)
+        saveCommitPanel.addView(
+            TextView(this).apply {
+                text = "ファイル名"
+                textSize = 14f
+                setTextColor(secondaryTextColor())
+                includeFontPadding = true
+                setPadding(0, 0, 0, dpToPx(6))
+            }
+        )
+
+        saveCommitFileNameInput = EditText(this).apply {
+            setSingleLine(true)
+            isEnabled = false
+            textSize = 16f
+            includeFontPadding = true
+            setPadding(dpToPx(12), dpToPx(8), dpToPx(12), dpToPx(8))
+            background = roundedBackground(editorSurfaceColor(), 10)
+        }
+        saveCommitPanel.addView(
+            saveCommitFileNameInput,
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dpToPx(52)).apply {
+                bottomMargin = dpToPx(24)
+            }
+        )
+
+        saveCommitPanel.addView(
+            TextView(this).apply {
+                text = "説明"
+                textSize = 14f
+                setTextColor(secondaryTextColor())
+                includeFontPadding = true
+                setPadding(0, 0, 0, dpToPx(6))
+            }
+        )
+
+        saveCommitMessageInput = EditText(this).apply {
+            hint = "編集内容を入力"
+            textSize = 16f
+            gravity = Gravity.TOP or Gravity.START
+            minLines = 6
+            includeFontPadding = true
+            setPadding(dpToPx(12), dpToPx(12), dpToPx(12), dpToPx(12))
+            background = roundedBackground(editorSurfaceColor(), 10)
+        }
+        saveCommitPanel.addView(
+            saveCommitMessageInput,
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dpToPx(150))
+        )
 
         findViewById<ViewGroup>(R.id.workArea).addView(
             saveCommitPanel,
@@ -1356,18 +1371,15 @@ class MainActivity : Activity() {
             )
         )
 
-        val panelWidth = minOf(
-            dpToPx(380),
-            resources.displayMetrics.widthPixels - dpToPx(24)
-        )
+        val panelWidth = resources.displayMetrics.widthPixels - dpToPx(12)
 
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(
-                dpToPx(18),
-                dpToPx(20),
-                dpToPx(18),
-                dpToPx(18)
+                dpToPx(12),
+                dpToPx(16),
+                dpToPx(12),
+                dpToPx(12)
             )
             background = roundedBackground(surfaceColor(), 16)
         }
@@ -1488,7 +1500,7 @@ class MainActivity : Activity() {
             )
             row.addView(
                 action,
-                LinearLayout.LayoutParams(dpToPx(96), dpToPx(44))
+                LinearLayout.LayoutParams(dpToPx(104), dpToPx(48))
             )
             content.addView(
                 row,
@@ -1496,7 +1508,7 @@ class MainActivity : Activity() {
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 ).apply {
-                    bottomMargin = dpToPx(8)
+                    bottomMargin = dpToPx(6)
                 }
             )
         }
@@ -5295,7 +5307,10 @@ class MainActivity : Activity() {
             )
             cornerRadius = dpToPx(10).toFloat()
         }
-        button.minHeight = dpToPx(42)
+        button.minHeight = dpToPx(44)
+        button.gravity = Gravity.CENTER
+        button.includeFontPadding = true
+        button.setPadding(dpToPx(12), 0, dpToPx(12), 0)
     }
 
     private fun styleButtonsInView(view: View) {
