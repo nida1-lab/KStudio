@@ -3297,6 +3297,7 @@ class MainActivity : Activity() {
 
         homeProjectTitle.text = projectName
         setSimpleIcon(homeProjectTitle, R.drawable.ic_project_simple)
+        setSimpleIcon(homeProjectTitle, R.drawable.ic_project_simple)
 
         renderHomeFiles()
     }
