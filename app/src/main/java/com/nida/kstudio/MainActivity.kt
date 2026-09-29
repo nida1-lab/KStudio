@@ -11,11 +11,14 @@ import android.text.TextWatcher
 import android.text.style.ForegroundColorSpan
 import android.view.KeyEvent
 import android.view.Gravity
+import android.view.View
+import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.widget.Button
 import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.LinearLayout
+import android.widget.PopupWindow
 import android.widget.Spinner
 import android.widget.ArrayAdapter
 import android.widget.TextView
@@ -33,8 +36,17 @@ class MainActivity : Activity() {
     private lateinit var lineInput: EditText
     private lateinit var previewContainer: FrameLayout
 
+    private lateinit var topMenuBar: View
+    private lateinit var projectBar: View
+    private lateinit var searchBar: View
+    private lateinit var editorContainer: View
+    private lateinit var bottomHeader: View
+    private lateinit var previewHeader: View
+    private lateinit var fullscreenButton: Button
+
     private var highlighting = false
     private var autoPairing = false
+    private var fullscreen = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,6 +59,13 @@ class MainActivity : Activity() {
         lineInput = findViewById(R.id.lineInput)
         previewContainer = findViewById(R.id.previewContainer)
 
+        topMenuBar = findViewById(R.id.topMenuBar)
+        projectBar = findViewById(R.id.projectBar)
+        searchBar = findViewById(R.id.searchBar)
+        editorContainer = findViewById(R.id.editorContainer)
+        bottomHeader = findViewById(R.id.bottomHeader)
+        previewHeader = findViewById(R.id.previewHeader)
+
         val runButton =
             findViewById<Button>(R.id.runButton)
 
@@ -55,6 +74,12 @@ class MainActivity : Activity() {
 
         val lineButton =
             findViewById<Button>(R.id.lineButton)
+
+        val menuButton =
+            findViewById<Button>(R.id.menuButton)
+
+        fullscreenButton =
+            findViewById(R.id.fullscreenButton)
 
         // Editor
 
@@ -192,25 +217,151 @@ class MainActivity : Activity() {
             }
         }
 
+        // Menu
+
+        menuButton.setOnClickListener {
+            showMainMenu(menuButton)
+        }
+
+        // Fullscreen
+
+        fullscreenButton.setOnClickListener {
+            togglePreviewFullscreen()
+        }
+
         // Initial
 
         lineNumbers.invalidate()
         updatePreview()
     }
 
+    // Main Menu
+
+    private fun showMainMenu(anchor: View) {
+
+        val menu =
+            LinearLayout(this)
+
+        menu.orientation =
+            LinearLayout.VERTICAL
+
+        menu.setPadding(
+            12,
+            12,
+            12,
+            12
+        )
+
+        menu.setBackgroundColor(
+            Color.WHITE
+        )
+
+        val items =
+            arrayOf(
+                "Home",
+                "フォルダ",
+                "履歴",
+                "プロジェクト一覧"
+            )
+
+        val popup =
+            PopupWindow(
+                menu,
+                240,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                true
+            )
+
+        for (item in items) {
+
+            val button =
+                Button(this)
+
+            button.text = item
+
+            button.setOnClickListener {
+
+                Toast.makeText(
+                    this,
+                    "$item は準備中です",
+                    Toast.LENGTH_SHORT
+                ).show()
+
+                popup.dismiss()
+            }
+
+            menu.addView(
+                button,
+                LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    52
+                )
+            )
+        }
+
+        popup.elevation = 12f
+
+        popup.showAsDropDown(
+            anchor,
+            0,
+            0
+        )
+    }
+
+    // Preview Fullscreen
+
+    private fun togglePreviewFullscreen() {
+
+        fullscreen = !fullscreen
+
+        if (fullscreen) {
+
+            topMenuBar.visibility = View.GONE
+            projectBar.visibility = View.GONE
+            searchBar.visibility = View.GONE
+            editorContainer.visibility = View.GONE
+            bottomHeader.visibility = View.GONE
+
+            previewHeader.visibility = View.VISIBLE
+
+            previewContainer.layoutParams =
+                previewContainer.layoutParams.apply {
+                    height =
+                        ViewGroup.LayoutParams.MATCH_PARENT
+                }
+
+            fullscreenButton.text = "✕"
+
+        } else {
+
+            topMenuBar.visibility = View.VISIBLE
+            projectBar.visibility = View.VISIBLE
+            searchBar.visibility = View.VISIBLE
+            editorContainer.visibility = View.VISIBLE
+            bottomHeader.visibility = View.VISIBLE
+
+            previewHeader.visibility = View.VISIBLE
+
+            previewContainer.layoutParams =
+                previewContainer.layoutParams.apply {
+                    height = dpToPx(180)
+                }
+
+            fullscreenButton.text = "⛶"
+        }
+
+        previewContainer.requestLayout()
+    }
+
     // Run
 
     private fun runKStudio() {
-
-        // Test message
 
         Toast.makeText(
             this,
             "RUN TEST",
             Toast.LENGTH_SHORT
         ).show()
-
-        // Error UI test
 
         showError(
             line = 10,
@@ -230,6 +381,10 @@ class MainActivity : Activity() {
         message: String,
         source: String
     ) {
+
+        if (fullscreen) {
+            togglePreviewFullscreen()
+        }
 
         previewContainer.removeAllViews()
 
@@ -547,126 +702,133 @@ class MainActivity : Activity() {
         previewContainer.addView(root)
     }
 
-// Error Detail
+    // Error Detail
 
-private fun showErrorDetail(
-    line: Int,
-    code: String,
-    fileName: String,
-    message: String,
-    source: String
-) {
+    private fun showErrorDetail(
+        line: Int,
+        code: String,
+        fileName: String,
+        message: String,
+        source: String
+    ) {
 
-    previewContainer.removeAllViews()
+        previewContainer.removeAllViews()
 
-    val root = LinearLayout(this)
+        val root =
+            LinearLayout(this)
 
-    root.orientation = LinearLayout.VERTICAL
+        root.orientation =
+            LinearLayout.VERTICAL
 
-    root.setPadding(
-        20,
-        20,
-        20,
-        20
-    )
-
-    // Code
-
-    val title = TextView(this)
-
-    title.text = code
-    title.textSize = 28f
-
-    title.setTextColor(
-        Color.rgb(
-            190,
-            50,
-            50
+        root.setPadding(
+            20,
+            20,
+            20,
+            20
         )
-    )
 
-    title.setPadding(
-        0,
-        0,
-        0,
-        20
-    )
+        // Code
 
-    // K001をもう一度押すとエラーコード画面へ戻る
+        val title =
+            TextView(this)
 
-    title.setOnClickListener {
+        title.text = code
+        title.textSize = 28f
 
-        showError(
-            line = line,
-            code = code,
-            fileName = fileName,
-            message = message,
-            source = source
-        )
-    }
-
-    root.addView(title)
-
-    // Description
-
-    val description = TextView(this)
-
-    description.text =
-        message +
-        "\n\n" +
-        "ファイル: $fileName\n" +
-        "場所: ${line}行目\n" +
-        "種類: $source"
-
-    description.textSize = 16f
-
-    description.setPadding(
-        0,
-        10,
-        0,
-        20
-    )
-
-    root.addView(description)
-
-    // Copy
-
-    val copyButton = Button(this)
-
-    copyButton.text = "エラーコードをコピー"
-
-    copyButton.setOnClickListener {
-
-        val clipboard =
-            getSystemService(
-                Context.CLIPBOARD_SERVICE
-            ) as ClipboardManager
-
-        val clip =
-            ClipData.newPlainText(
-                "KStudio Error",
-                code
+        title.setTextColor(
+            Color.rgb(
+                190,
+                50,
+                50
             )
+        )
 
-        clipboard.setPrimaryClip(clip)
+        title.setPadding(
+            0,
+            0,
+            0,
+            20
+        )
 
-        Toast.makeText(
-            this,
-            "$code をコピーしました",
-            Toast.LENGTH_SHORT
-        ).show()
+        // K001を押して一覧へ戻る
+
+        title.setOnClickListener {
+
+            showError(
+                line = line,
+                code = code,
+                fileName = fileName,
+                message = message,
+                source = source
+            )
+        }
+
+        root.addView(title)
+
+        // Description
+
+        val description =
+            TextView(this)
+
+        description.text =
+            message +
+            "\n\n" +
+            "ファイル: $fileName\n" +
+            "場所: ${line}行目\n" +
+            "種類: $source"
+
+        description.textSize = 16f
+
+        description.setPadding(
+            0,
+            10,
+            0,
+            20
+        )
+
+        root.addView(description)
+
+        // Copy
+
+        val copyButton =
+            Button(this)
+
+        copyButton.text =
+            "エラーコードをコピー"
+
+        copyButton.setOnClickListener {
+
+            val clipboard =
+                getSystemService(
+                    Context.CLIPBOARD_SERVICE
+                ) as ClipboardManager
+
+            val clip =
+                ClipData.newPlainText(
+                    "KStudio Error",
+                    code
+                )
+
+            clipboard.setPrimaryClip(clip)
+
+            Toast.makeText(
+                this,
+                "$code をコピーしました",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+
+        root.addView(
+            copyButton,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
+
+        previewContainer.addView(root)
     }
 
-    root.addView(
-        copyButton,
-        LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT
-        )
-    )
-
-    previewContainer.addView(root)
-}
     // Auto Pair
 
     private fun insertPair(
@@ -1103,5 +1265,17 @@ private fun showErrorDetail(
         previewContainer.addView(
             preview
         )
+    }
+
+    // DP
+
+    private fun dpToPx(
+        dp: Int
+    ): Int {
+
+        return (
+            dp *
+            resources.displayMetrics.density
+        ).toInt()
     }
 }
