@@ -1147,7 +1147,6 @@ class MainActivity : Activity() {
 
         val scrim = View(this).apply {
             setBackgroundColor(Color.argb(80, 0, 0, 0))
-            setOnClickListener { drawer.dismiss() }
         }
         root.addView(scrim, FrameLayout.LayoutParams(
             ViewGroup.LayoutParams.MATCH_PARENT,
@@ -1171,6 +1170,7 @@ class MainActivity : Activity() {
             setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
         }
 
+        scrim.setOnClickListener { drawer.dismiss() }
         close.setOnClickListener { drawer.dismiss() }
         addDrawerClickDismiss(panel, drawer)
 
