@@ -477,10 +477,10 @@ class MainActivity : Activity() {
                     LinearLayout.VERTICAL
 
                 setPadding(
-                    12,
-                    12,
-                    12,
-                    12
+                    dpToPx(12),
+                    dpToPx(12),
+                    dpToPx(12),
+                    dpToPx(12)
                 )
 
                 setBackgroundColor(
@@ -491,7 +491,7 @@ class MainActivity : Activity() {
         val popup =
             PopupWindow(
                 menu,
-                260,
+                dpToPx(260),
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 true
             )
@@ -611,7 +611,7 @@ class MainActivity : Activity() {
             )
         )
 
-        popup.elevation = 12f
+        popup.elevation = dpToPx(12).toFloat()
 
         popup.showAsDropDown(
             anchor,
@@ -747,7 +747,7 @@ class MainActivity : Activity() {
         val root =
             LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(16, 16, 16, 16)
+                setPadding(dpToPx(16), dpToPx(16), dpToPx(16), dpToPx(16))
                 setBackgroundColor(surfaceColor())
             }
 
@@ -762,7 +762,7 @@ class MainActivity : Activity() {
             TextView(this).apply {
                 textSize = 13f
                 setTextColor(secondaryTextColor())
-                setPadding(0, 6, 0, 12)
+                setPadding(0, dpToPx(6), 0, dpToPx(12))
             }
 
         val list =
@@ -815,19 +815,19 @@ class MainActivity : Activity() {
 
         actions.addView(
             newFile,
-            LinearLayout.LayoutParams(0, 50, 1f)
+            LinearLayout.LayoutParams(0, dpToPx(50), 1f)
         )
         actions.addView(
             newFolder,
-            LinearLayout.LayoutParams(0, 50, 1f)
+            LinearLayout.LayoutParams(0, dpToPx(50), 1f)
         )
         actions.addView(
             upButton,
-            LinearLayout.LayoutParams(0, 50, 1f)
+            LinearLayout.LayoutParams(0, dpToPx(50), 1f)
         )
         actions.addView(
             closeButton,
-            LinearLayout.LayoutParams(0, 50, 1f)
+            LinearLayout.LayoutParams(0, dpToPx(50), 1f)
         )
 
         root.addView(title)
@@ -836,8 +836,7 @@ class MainActivity : Activity() {
             scroll,
             LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                0,
-                1f
+                dpToPx(300)
             )
         )
         root.addView(actions)
@@ -868,7 +867,7 @@ class MainActivity : Activity() {
                         text = "このフォルダは空です"
                         textSize = 15f
                         setTextColor(secondaryTextColor())
-                        setPadding(8, 20, 8, 20)
+                        setPadding(dpToPx(8), dpToPx(20), dpToPx(8), dpToPx(20))
                     }
 
                 list.addView(empty)
@@ -945,7 +944,7 @@ class MainActivity : Activity() {
                     button,
                     LinearLayout.LayoutParams(
                         ViewGroup.LayoutParams.MATCH_PARENT,
-                        54
+                        dpToPx(54)
                     )
                 )
             }
@@ -2296,6 +2295,7 @@ class MainActivity : Activity() {
 
         var line = 1
         var inString = false
+        var inRawString = false
         var inChar = false
         var escaped = false
         var inLineComment = false
@@ -2305,6 +2305,27 @@ class MainActivity : Activity() {
 
             val ch = source[index]
             val next = source.getOrNull(index + 1)
+
+            if (inRawString) {
+
+                if (
+                    source.startsWith(
+                        "\"\"\"",
+                        index
+                    )
+                ) {
+                    inRawString = false
+                    index += 3
+                    continue
+                }
+
+                if (ch == '\n') {
+                    line++
+                }
+
+                index++
+                continue
+            }
 
             if (ch == '\n') {
 
@@ -2322,6 +2343,19 @@ class MainActivity : Activity() {
 
             if (inLineComment) {
                 index++
+                continue
+            }
+
+            if (
+                !inString &&
+                !inChar &&
+                source.startsWith(
+                    "\"\"\"",
+                    index
+                )
+            ) {
+                inRawString = true
+                index += 3
                 continue
             }
 
@@ -2404,7 +2438,7 @@ class MainActivity : Activity() {
             index++
         }
 
-        if (inString || inChar) {
+        if (inString || inRawString || inChar) {
             return line to
                 "文字列または文字リテラルが閉じられていません。"
         }
