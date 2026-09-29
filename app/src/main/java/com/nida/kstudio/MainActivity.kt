@@ -6,6 +6,8 @@ import android.graphics.Color
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.text.Editable
 import android.text.TextWatcher
 import android.text.style.ForegroundColorSpan
@@ -27,8 +29,6 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.regex.Pattern
-import android.content.Intent
-import android.net.Uri
 
 class MainActivity : Activity() {
 
@@ -55,123 +55,71 @@ class MainActivity : Activity() {
 
         setContentView(R.layout.activity_main)
 
-        codeEditor = findViewById(R.id.codeEditor)
-        lineNumbers = findViewById(R.id.lineNumbers)
-        searchInput = findViewById(R.id.searchInput)
-        lineInput = findViewById(R.id.lineInput)
-        previewContainer = findViewById(R.id.previewContainer)
+        codeEditor =
+            findViewById(R.id.codeEditor)
 
-        topMenuBar = findViewById(R.id.topMenuBar)
-        projectBar = findViewById(R.id.projectBar)
-        searchBar = findViewById(R.id.searchBar)
-        editorContainer = findViewById(R.id.editorContainer)
-        bottomHeader = findViewById(R.id.bottomHeader)
-        previewHeader = findViewById(R.id.previewHeader)
+        lineNumbers =
+            findViewById(R.id.lineNumbers)
+
+        searchInput =
+            findViewById(R.id.searchInput)
+
+        lineInput =
+            findViewById(R.id.lineInput)
+
+        previewContainer =
+            findViewById(R.id.previewContainer)
+
+        topMenuBar =
+            findViewById(R.id.topMenuBar)
+
+        projectBar =
+            findViewById(R.id.projectBar)
+
+        searchBar =
+            findViewById(R.id.searchBar)
+
+        editorContainer =
+            findViewById(R.id.editorContainer)
+
+        bottomHeader =
+            findViewById(R.id.bottomHeader)
+
+        previewHeader =
+            findViewById(R.id.previewHeader)
 
         val runButton =
-            findViewById<Button>(R.id.runButton)
-
-        val searchButton =
-            findViewById<Button>(R.id.searchButton)
-
-        val lineButton =
-            findViewById<Button>(R.id.lineButton)
-
-        val menuButton =
-            findViewById<Button>(R.id.menuButton)
-
-        fullscreenButton =
-            findViewById(R.id.fullscreenButton)
-
-// Folder Picker
-
-private fun openFolderPicker() {
-
-    val intent =
-        Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
-
-    intent.addFlags(
-        Intent.FLAG_GRANT_READ_URI_PERMISSION or
-        Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
-        Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
-    )
-
-    startActivityForResult(
-        intent,
-        1001
-    )
-}
-
-// Folder Result
-
-override fun onActivityResult(
-    requestCode: Int,
-    resultCode: Int,
-    data: Intent?
-) {
-    super.onActivityResult(
-        requestCode,
-        resultCode,
-        data
-    )
-
-    if (
-        requestCode == 1001 &&
-        resultCode == RESULT_OK
-    ) {
-
-        val uri =
-            data?.data
-                ?: return
-
-        try {
-
-            contentResolver.takePersistableUriPermission(
-                uri,
-                Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            findViewById<Button>(
+                R.id.runButton
             )
 
-        } catch (_: Exception) {
-        }
+        val searchButton =
+            findViewById<Button>(
+                R.id.searchButton
+            )
 
-        val projectName =
-            getFolderName(uri)
+        val lineButton =
+            findViewById<Button>(
+                R.id.lineButton
+            )
 
-        findViewById<TextView>(
-            R.id.projectName
-        ).text =
-            "現在編集中: $projectName"
-    }
-}
+        val menuButton =
+            findViewById<Button>(
+                R.id.menuButton
+            )
 
-// Folder Name
-
-private fun getFolderName(
-    uri: Uri
-): String {
-
-    val path =
-        uri.path
-            ?: return "選択したフォルダ"
-
-    val name =
-        path.substringAfterLast(":")
-
-    return if (
-        name.isNotEmpty()
-    ) {
-        name
-    } else {
-        "選択したフォルダ"
-    }
-}
+        fullscreenButton =
+            findViewById(
+                R.id.fullscreenButton
+            )
 
         // Editor
 
         codeEditor.setText("")
 
-        lineNumbers.setEditor(codeEditor)
+        lineNumbers.setEditor(
+            codeEditor
+        )
 
         codeEditor.addTextChangedListener(
             object : TextWatcher {
@@ -196,7 +144,11 @@ private fun getFolderName(
                 override fun afterTextChanged(
                     s: Editable?
                 ) {
-                    if (!highlighting && !autoPairing) {
+
+                    if (
+                        !highlighting &&
+                        !autoPairing
+                    ) {
                         highlightCode()
                     }
 
@@ -207,23 +159,35 @@ private fun getFolderName(
 
         // Auto Pair
 
-        codeEditor.setOnKeyListener { _, keyCode, event ->
+        codeEditor.setOnKeyListener {
+                _, keyCode, event ->
 
-            if (event.action != KeyEvent.ACTION_DOWN) {
+            if (
+                event.action !=
+                KeyEvent.ACTION_DOWN
+            ) {
                 return@setOnKeyListener false
             }
 
-            if (keyCode == KeyEvent.KEYCODE_DEL) {
-                return@setOnKeyListener handleDeletePair()
+            if (
+                keyCode ==
+                KeyEvent.KEYCODE_DEL
+            ) {
+                return@setOnKeyListener
+                    handleDeletePair()
             }
 
             val pair =
-                when (event.unicodeChar.toChar()) {
+                when (
+                    event.unicodeChar.toChar()
+                ) {
+
                     '{' -> '}'
                     '(' -> ')'
                     '[' -> ']'
                     '"' -> '"'
                     '\'' -> '\''
+
                     else -> null
                 }
 
@@ -237,6 +201,7 @@ private fun getFolderName(
                 true
 
             } else {
+
                 false
             }
         }
@@ -245,6 +210,7 @@ private fun getFolderName(
 
         codeEditor.viewTreeObserver
             .addOnScrollChangedListener {
+
                 lineNumbers.invalidate()
             }
 
@@ -252,18 +218,21 @@ private fun getFolderName(
 
         codeEditor.viewTreeObserver
             .addOnGlobalLayoutListener {
+
                 lineNumbers.invalidate()
             }
 
         // Run
 
         runButton.setOnClickListener {
+
             runKStudio()
         }
 
         // Search
 
         searchButton.setOnClickListener {
+
             searchCode()
         }
 
@@ -271,13 +240,19 @@ private fun getFolderName(
                 _, actionId, event ->
 
             val enter =
-                actionId == EditorInfo.IME_ACTION_SEARCH ||
-                event?.keyCode == KeyEvent.KEYCODE_ENTER
+                actionId ==
+                    EditorInfo.IME_ACTION_SEARCH ||
+                event?.keyCode ==
+                    KeyEvent.KEYCODE_ENTER
 
             if (enter) {
+
                 searchCode()
+
                 true
+
             } else {
+
                 false
             }
         }
@@ -285,6 +260,7 @@ private fun getFolderName(
         // Line Jump
 
         lineButton.setOnClickListener {
+
             jumpToLine()
         }
 
@@ -292,13 +268,19 @@ private fun getFolderName(
                 _, actionId, event ->
 
             val enter =
-                actionId == EditorInfo.IME_ACTION_GO ||
-                event?.keyCode == KeyEvent.KEYCODE_ENTER
+                actionId ==
+                    EditorInfo.IME_ACTION_GO ||
+                event?.keyCode ==
+                    KeyEvent.KEYCODE_ENTER
 
             if (enter) {
+
                 jumpToLine()
+
                 true
+
             } else {
+
                 false
             }
         }
@@ -306,151 +288,247 @@ private fun getFolderName(
         // Menu
 
         menuButton.setOnClickListener {
-            showMainMenu(menuButton)
+
+            showMainMenu(
+                menuButton
+            )
         }
 
         // Fullscreen
 
         fullscreenButton.setOnClickListener {
+
             togglePreviewFullscreen()
         }
 
         // Initial
 
         lineNumbers.invalidate()
+
         updatePreview()
     }
 
     // Main Menu
 
-private fun showMainMenu(anchor: View) {
+    private fun showMainMenu(
+        anchor: View
+    ) {
 
-    val menu =
-        LinearLayout(this).apply {
+        val menu =
+            LinearLayout(this).apply {
 
-            orientation =
-                LinearLayout.VERTICAL
+                orientation =
+                    LinearLayout.VERTICAL
 
-            setPadding(
-                12,
-                12,
-                12,
-                12
+                setPadding(
+                    12,
+                    12,
+                    12,
+                    12
+                )
+
+                setBackgroundColor(
+                    Color.WHITE
+                )
+            }
+
+        val popup =
+            PopupWindow(
+                menu,
+                260,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                true
             )
 
-            setBackgroundColor(
-                Color.WHITE
+        // Home
+
+        val homeButton =
+            Button(this).apply {
+
+                text = "Home"
+
+                setOnClickListener {
+
+                    updatePreview()
+
+                    popup.dismiss()
+                }
+            }
+
+        menu.addView(
+            homeButton,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                52
             )
-        }
-
-    val popup =
-        PopupWindow(
-            menu,
-            260,
-            ViewGroup.LayoutParams.WRAP_CONTENT,
-            true
         )
 
-    // Home
+        // Folder
 
-    val homeButton =
-        Button(this).apply {
+        val folderButton =
+            Button(this).apply {
 
-            text = "Home"
+                text = "フォルダ"
 
-            setOnClickListener {
+                setOnClickListener {
 
-                updatePreview()
+                    openFolderPicker()
 
-                popup.dismiss()
+                    popup.dismiss()
+                }
             }
-        }
 
-    menu.addView(
-        homeButton,
-        LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            52
+        menu.addView(
+            folderButton,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                52
+            )
         )
-    )
 
-    // Folder
+        // History
 
-    val folderButton =
-        Button(this).apply {
+        val historyButton =
+            Button(this).apply {
 
-            text = "フォルダ"
+                text = "履歴"
 
-            setOnClickListener {
+                setOnClickListener {
 
-                openFolderPicker()
+                    showHistory()
 
-                popup.dismiss()
+                    popup.dismiss()
+                }
             }
-        }
 
-    menu.addView(
-        folderButton,
-        LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            52
+        menu.addView(
+            historyButton,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                52
+            )
         )
-    )
 
-    // History
+        // Projects
 
-    val historyButton =
-        Button(this).apply {
+        val projectButton =
+            Button(this).apply {
 
-            text = "履歴"
+                text = "プロジェクト一覧"
 
-            setOnClickListener {
+                setOnClickListener {
 
-                showHistory()
+                    showProjects()
 
-                popup.dismiss()
+                    popup.dismiss()
+                }
             }
-        }
 
-    menu.addView(
-        historyButton,
-        LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            52
+        menu.addView(
+            projectButton,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                52
+            )
         )
-    )
 
-    // Projects
+        popup.elevation = 12f
 
-    val projectButton =
-        Button(this).apply {
+        popup.showAsDropDown(
+            anchor,
+            0,
+            0
+        )
+    }
 
-            text = "プロジェクト一覧"
+    // Folder Picker
 
-            setOnClickListener {
+    private fun openFolderPicker() {
 
-                showProjects()
+        val intent =
+            Intent(
+                Intent.ACTION_OPEN_DOCUMENT_TREE
+            )
 
-                popup.dismiss()
+        intent.addFlags(
+            Intent.FLAG_GRANT_READ_URI_PERMISSION or
+            Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+            Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION
+        )
+
+        startActivityForResult(
+            intent,
+            1001
+        )
+    }
+
+    // Folder Result
+
+    @Suppress("DEPRECATION")
+    override fun onActivityResult(
+        requestCode: Int,
+        resultCode: Int,
+        data: Intent?
+    ) {
+
+        super.onActivityResult(
+            requestCode,
+            resultCode,
+            data
+        )
+
+        if (
+            requestCode == 1001 &&
+            resultCode == RESULT_OK
+        ) {
+
+            val uri =
+                data?.data
+                    ?: return
+
+            try {
+
+                contentResolver
+                    .takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                    )
+
+            } catch (_: Exception) {
             }
+
+            val projectName =
+                getFolderName(uri)
+
+            findViewById<TextView>(
+                R.id.projectName
+            ).text =
+                "現在編集中: $projectName"
         }
+    }
 
-    menu.addView(
-        projectButton,
-        LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            52
-        )
-    )
+    // Folder Name
 
-    popup.elevation = 12f
+    private fun getFolderName(
+        uri: Uri
+    ): String {
 
-    popup.showAsDropDown(
-        anchor,
-        0,
-        0
-    )
-}
+        val path =
+            uri.path
+                ?: return "選択したフォルダ"
+
+        val name =
+            path.substringAfterLast(":")
+
+        return if (
+            name.isNotEmpty()
+        ) {
+            name
+        } else {
+            "選択したフォルダ"
+        }
+    }
 
     // Preview Fullscreen
 
@@ -460,38 +538,63 @@ private fun showMainMenu(anchor: View) {
 
         if (fullscreen) {
 
-            topMenuBar.visibility = View.GONE
-            projectBar.visibility = View.GONE
-            searchBar.visibility = View.GONE
-            editorContainer.visibility = View.GONE
-            bottomHeader.visibility = View.GONE
+            topMenuBar.visibility =
+                View.GONE
 
-            previewHeader.visibility = View.VISIBLE
+            projectBar.visibility =
+                View.GONE
+
+            searchBar.visibility =
+                View.GONE
+
+            editorContainer.visibility =
+                View.GONE
+
+            bottomHeader.visibility =
+                View.GONE
+
+            previewHeader.visibility =
+                View.VISIBLE
 
             previewContainer.layoutParams =
                 previewContainer.layoutParams.apply {
+
                     height =
                         ViewGroup.LayoutParams.MATCH_PARENT
                 }
 
-            fullscreenButton.text = "✕"
+            fullscreenButton.text =
+                "✕"
 
         } else {
 
-            topMenuBar.visibility = View.VISIBLE
-            projectBar.visibility = View.VISIBLE
-            searchBar.visibility = View.VISIBLE
-            editorContainer.visibility = View.VISIBLE
-            bottomHeader.visibility = View.VISIBLE
+            topMenuBar.visibility =
+                View.VISIBLE
 
-            previewHeader.visibility = View.VISIBLE
+            projectBar.visibility =
+                View.VISIBLE
+
+            searchBar.visibility =
+                View.VISIBLE
+
+            editorContainer.visibility =
+                View.VISIBLE
+
+            bottomHeader.visibility =
+                View.VISIBLE
+
+            previewHeader.visibility =
+                View.VISIBLE
 
             previewContainer.layoutParams =
                 previewContainer.layoutParams.apply {
-                    height = dpToPx(180)
+
+                    height =
+                        dpToPx(180)
                 }
 
-            fullscreenButton.text = "⛶"
+            fullscreenButton.text =
+                "⛶"
         }
 
         previewContainer.requestLayout()
@@ -499,133 +602,142 @@ private fun showMainMenu(anchor: View) {
 
     // Run
 
-private fun runKStudio() {
+    private fun runKStudio() {
 
-    saveHistory()
+        saveHistory()
 
-    Toast.makeText(
-        this,
-        "RUN TEST",
-        Toast.LENGTH_SHORT
-    ).show()
+        Toast.makeText(
+            this,
+            "RUN TEST",
+            Toast.LENGTH_SHORT
+        ).show()
 
-    showError(
-        line = 10,
-        code = "K001",
-        fileName = "MainActivity.kt",
-        message = "Kotlinコードに問題があります。",
-        source = "KStudio"
-    )
-}
-
-// History Save
-
-private fun saveHistory() {
-
-    val preferences =
-        getSharedPreferences(
-            "KStudio",
-            Context.MODE_PRIVATE
+        showError(
+            line = 10,
+            code = "K001",
+            fileName = "MainActivity.kt",
+            message =
+                "Kotlinコードに問題があります。",
+            source = "KStudio"
         )
+    }
 
-    val oldHistory =
-        preferences.getString(
-            "history",
-            ""
-        ) ?: ""
+    // History Save
 
-    val time =
-        SimpleDateFormat(
-            "yyyy-MM-dd HH:mm",
-            Locale.getDefault()
-        ).format(Date())
+    private fun saveHistory() {
 
-    val newHistory =
-        "$time  Run\n$oldHistory"
+        val preferences =
+            getSharedPreferences(
+                "KStudio",
+                Context.MODE_PRIVATE
+            )
 
-    preferences.edit()
-        .putString(
-            "history",
-            newHistory
+        val oldHistory =
+            preferences.getString(
+                "history",
+                ""
+            ) ?: ""
+
+        val time =
+            SimpleDateFormat(
+                "yyyy-MM-dd HH:mm",
+                Locale.getDefault()
+            ).format(Date())
+
+        val newHistory =
+            "$time  Run\n$oldHistory"
+
+        preferences.edit()
+            .putString(
+                "history",
+                newHistory
+            )
+            .apply()
+    }
+
+    // History
+
+    private fun showHistory() {
+
+        val preferences =
+            getSharedPreferences(
+                "KStudio",
+                Context.MODE_PRIVATE
+            )
+
+        val history =
+            preferences.getString(
+                "history",
+                ""
+            )
+
+        val message =
+            if (
+                history.isNullOrBlank()
+            ) {
+
+                "まだ履歴はありません。"
+
+            } else {
+
+                history
+            }
+
+        val dialog =
+            android.app.AlertDialog.Builder(
+                this
+            )
+                .setTitle("履歴")
+                .setMessage(message)
+                .setPositiveButton(
+                    "閉じる",
+                    null
+                )
+                .setNegativeButton(
+                    "履歴を削除"
+                ) { _, _ ->
+
+                    preferences.edit()
+                        .remove("history")
+                        .apply()
+                }
+                .create()
+
+        dialog.show()
+    }
+
+    // Projects
+
+    private fun showProjects() {
+
+        val projectName =
+            findViewById<TextView>(
+                R.id.projectName
+            ).text.toString()
+
+        android.app.AlertDialog.Builder(
+            this
         )
-        .apply()
-}
+            .setTitle("プロジェクト一覧")
+            .setItems(
+                arrayOf(
+                    projectName
+                )
+            ) { _, _ ->
 
-// History
-
-private fun showHistory() {
-
-    val preferences =
-        getSharedPreferences(
-            "KStudio",
-            Context.MODE_PRIVATE
-        )
-
-    val history =
-        preferences.getString(
-            "history",
-            ""
-        )
-
-    val message =
-        if (
-            history.isNullOrBlank()
-        ) {
-            "まだ履歴はありません。"
-        } else {
-            history
-        }
-
-    val dialog =
-        android.app.AlertDialog.Builder(this)
-            .setTitle("履歴")
-            .setMessage(message)
-            .setPositiveButton(
+                Toast.makeText(
+                    this,
+                    "プロジェクトを選択しました",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+            .setNegativeButton(
                 "閉じる",
                 null
             )
-            .setNegativeButton(
-                "履歴を削除"
-            ) { _, _ ->
+            .show()
+    }
 
-                preferences.edit()
-                    .remove("history")
-                    .apply()
-            }
-            .create()
-
-    dialog.show()
-}
-
-// Projects
-
-private fun showProjects() {
-
-    val projectName =
-        findViewById<TextView>(
-            R.id.projectName
-        ).text.toString()
-
-    android.app.AlertDialog.Builder(this)
-        .setTitle("プロジェクト一覧")
-        .setItems(
-            arrayOf(
-                projectName
-            )
-        ) { _, _ ->
-
-            Toast.makeText(
-                this,
-                "プロジェクトを選択しました",
-                Toast.LENGTH_SHORT
-            ).show()
-        }
-        .setNegativeButton(
-            "閉じる",
-            null
-        )
-        .show()
-}
     // Error UI
 
     private fun showError(
@@ -637,6 +749,7 @@ private fun showProjects() {
     ) {
 
         if (fullscreen) {
+
             togglePreviewFullscreen()
         }
 
@@ -714,7 +827,8 @@ private fun showProjects() {
                 sources
             )
 
-        sourceSpinner.adapter = adapter
+        sourceSpinner.adapter =
+            adapter
 
         val selectedIndex =
             sources.indexOf(source)
@@ -908,7 +1022,8 @@ private fun showProjects() {
         val copyButton =
             Button(this).apply {
 
-                text = "エラーコードをコピー"
+                text =
+                    "エラーコードをコピー"
 
                 setOnClickListener {
 
@@ -944,9 +1059,11 @@ private fun showProjects() {
         val previewButton =
             Button(this).apply {
 
-                text = "Previewに戻る"
+                text =
+                    "Previewに戻る"
 
                 setOnClickListener {
+
                     updatePreview()
                 }
             }
@@ -987,6 +1104,7 @@ private fun showProjects() {
             TextView(this)
 
         title.text = code
+
         title.textSize = 28f
 
         title.setTextColor(
@@ -1063,7 +1181,9 @@ private fun showProjects() {
                     code
                 )
 
-            clipboard.setPrimaryClip(clip)
+            clipboard.setPrimaryClip(
+                clip
+            )
 
             Toast.makeText(
                 this,
@@ -1096,7 +1216,10 @@ private fun showProjects() {
         val end =
             codeEditor.selectionEnd
 
-        if (start < 0 || end < 0) {
+        if (
+            start < 0 ||
+            end < 0
+        ) {
             return
         }
 
@@ -1109,9 +1232,14 @@ private fun showProjects() {
                 .toString()
 
         val replacement =
-            if (selected.isEmpty()) {
+            if (
+                selected.isEmpty()
+            ) {
+
                 "$open$close"
+
             } else {
+
                 "$open$selected$close"
             }
 
@@ -1126,9 +1254,14 @@ private fun showProjects() {
         autoPairing = false
 
         val cursorPosition =
-            if (selected.isEmpty()) {
+            if (
+                selected.isEmpty()
+            ) {
+
                 start + 1
+
             } else {
+
                 start + replacement.length
             }
 
@@ -1139,6 +1272,7 @@ private fun showProjects() {
         )
 
         highlightCode()
+
         lineNumbers.invalidate()
     }
 
@@ -1152,7 +1286,10 @@ private fun showProjects() {
         val end =
             codeEditor.selectionEnd
 
-        if (start < 0 || end < 0) {
+        if (
+            start < 0 ||
+            end < 0
+        ) {
             return false
         }
 
@@ -1197,10 +1334,12 @@ private fun showProjects() {
         autoPairing = false
 
         codeEditor.setSelection(
-            (start - 1).coerceAtLeast(0)
+            (start - 1)
+                .coerceAtLeast(0)
         )
 
         highlightCode()
+
         lineNumbers.invalidate()
 
         return true
@@ -1211,14 +1350,18 @@ private fun showProjects() {
     private fun searchCode() {
 
         val keyword =
-            searchInput.text.toString()
+            searchInput.text
+                .toString()
 
-        if (keyword.isEmpty()) {
+        if (
+            keyword.isEmpty()
+        ) {
             return
         }
 
         val text =
-            codeEditor.text.toString()
+            codeEditor.text
+                .toString()
 
         val start =
             codeEditor.selectionEnd
@@ -1231,6 +1374,7 @@ private fun showProjects() {
             )
 
         if (index == -1) {
+
             index =
                 text.indexOf(keyword)
         }
@@ -1271,12 +1415,15 @@ private fun showProjects() {
             line == null ||
             line < 1
         ) {
+
             lineInput.text.clear()
+
             return
         }
 
         val text =
-            codeEditor.text.toString()
+            codeEditor.text
+                .toString()
 
         val lines =
             text.split("\n")
@@ -1288,7 +1435,9 @@ private fun showProjects() {
 
         var position = 0
 
-        for (i in 0 until targetLine - 1) {
+        for (
+            i in 0 until targetLine - 1
+        ) {
 
             position +=
                 lines[i].length + 1
@@ -1365,6 +1514,7 @@ private fun showProjects() {
             )
 
         for (span in oldSpans) {
+
             editable.removeSpan(span)
         }
 
@@ -1372,7 +1522,9 @@ private fun showProjects() {
             editable.toString()
 
         if (text.isEmpty()) {
+
             highlighting = false
+
             return
         }
 
@@ -1409,7 +1561,9 @@ private fun showProjects() {
                 "null"
             )
 
-        for (keyword in keywords) {
+        for (
+            keyword in keywords
+        ) {
 
             val pattern =
                 Pattern.compile(
@@ -1444,7 +1598,9 @@ private fun showProjects() {
         val stringMatcher =
             stringPattern.matcher(text)
 
-        while (stringMatcher.find()) {
+        while (
+            stringMatcher.find()
+        ) {
 
             editable.setSpan(
                 ForegroundColorSpan(
@@ -1468,7 +1624,9 @@ private fun showProjects() {
         val commentMatcher =
             commentPattern.matcher(text)
 
-        while (commentMatcher.find()) {
+        while (
+            commentMatcher.find()
+        ) {
 
             editable.setSpan(
                 ForegroundColorSpan(
@@ -1495,7 +1653,9 @@ private fun showProjects() {
             TextView(this).apply {
 
                 text =
-                    if (codeEditor.text.isEmpty()) {
+                    if (
+                        codeEditor.text.isEmpty()
+                    ) {
 
                         "KStudio is ready."
 
