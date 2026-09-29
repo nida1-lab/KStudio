@@ -499,23 +499,133 @@ private fun showMainMenu(anchor: View) {
 
     // Run
 
-    private fun runKStudio() {
+private fun runKStudio() {
 
-        Toast.makeText(
-            this,
-            "RUN TEST",
-            Toast.LENGTH_SHORT
-        ).show()
+    saveHistory()
 
-        showError(
-            line = 10,
-            code = "K001",
-            fileName = "MainActivity.kt",
-            message = "Kotlinコードに問題があります。",
-            source = "KStudio"
+    Toast.makeText(
+        this,
+        "RUN TEST",
+        Toast.LENGTH_SHORT
+    ).show()
+
+    showError(
+        line = 10,
+        code = "K001",
+        fileName = "MainActivity.kt",
+        message = "Kotlinコードに問題があります。",
+        source = "KStudio"
+    )
+}
+
+// History Save
+
+private fun saveHistory() {
+
+    val preferences =
+        getSharedPreferences(
+            "KStudio",
+            Context.MODE_PRIVATE
         )
-    }
 
+    val oldHistory =
+        preferences.getString(
+            "history",
+            ""
+        ) ?: ""
+
+    val time =
+        SimpleDateFormat(
+            "yyyy-MM-dd HH:mm",
+            Locale.getDefault()
+        ).format(Date())
+
+    val newHistory =
+        "$time  Run\n$oldHistory"
+
+    preferences.edit()
+        .putString(
+            "history",
+            newHistory
+        )
+        .apply()
+}
+
+// History
+
+private fun showHistory() {
+
+    val preferences =
+        getSharedPreferences(
+            "KStudio",
+            Context.MODE_PRIVATE
+        )
+
+    val history =
+        preferences.getString(
+            "history",
+            ""
+        )
+
+    val message =
+        if (
+            history.isNullOrBlank()
+        ) {
+            "まだ履歴はありません。"
+        } else {
+            history
+        }
+
+    val dialog =
+        android.app.AlertDialog.Builder(this)
+            .setTitle("履歴")
+            .setMessage(message)
+            .setPositiveButton(
+                "閉じる",
+                null
+            )
+            .setNegativeButton(
+                "履歴を削除"
+            ) { _, _ ->
+
+                preferences.edit()
+                    .remove("history")
+                    .apply()
+            }
+            .create()
+
+    dialog.show()
+}
+
+// Projects
+
+private fun showProjects() {
+
+    val projectName =
+        findViewById<TextView>(
+            R.id.projectName
+        ).text.toString()
+
+    android.app.AlertDialog.Builder(this)
+        .setTitle("プロジェクト一覧")
+        .setItems(
+            arrayOf(
+                projectName
+            )
+        ) { _, _ ->
+
+            Toast.makeText(
+                this,
+                "プロジェクトを選択しました",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+        .setNegativeButton(
+            "閉じる",
+            null
+        )
+        .show()
+}
     // Error UI
 
     private fun showError(
