@@ -4705,8 +4705,6 @@ class MainActivity : Activity() {
 
     private fun runKStudio() {
 
-        saveHistory()
-
         val source =
             codeEditor.text
                 .toString()
@@ -4715,6 +4713,8 @@ class MainActivity : Activity() {
             validateCode(source)
 
         if (error != null) {
+
+            saveRunHistory(false)
 
             showError(
                 line = error.first,
@@ -4727,7 +4727,75 @@ class MainActivity : Activity() {
             return
         }
 
-        showRunSuccess(source)
+        val treeUri =
+            folderRootUri
+
+        if (treeUri == null) {
+            saveRunHistory(false)
+            showError(
+                line = 1,
+                code = "P000",
+                fileName = currentFileName,
+                message = "プロジェクトフォルダが選択されていません。",
+                source = "Android"
+            )
+            return
+        }
+
+        val rootUri =
+            DocumentsContract.buildDocumentUriUsingTree(
+                treeUri,
+                DocumentsContract.getTreeDocumentId(treeUri)
+            )
+
+        previewTitle.text = "Android Preview (BETA)"
+        previewContainer.removeAllViews()
+
+        val result =
+            try {
+                AndroidRuntimePreview(this).render(
+                    treeUri = treeUri,
+                    rootUri = rootUri,
+                    container = previewContainer,
+                    projectName = projectName
+                )
+            } catch (e: Exception) {
+                AndroidRuntimePreview.Result(
+                    success = false,
+                    message = e.message
+                        ?: "Android Previewの生成に失敗しました。"
+                )
+            }
+
+        if (!result.success) {
+            saveRunHistory(false)
+
+            showError(
+                line = 1,
+                code = "P001",
+                fileName = result.layoutPath.ifBlank {
+                    currentFileName
+                },
+                message =
+                    result.message +
+                    "\n\nプロジェクト全体を再帰的に確認しました。" +
+                    "\n走査ファイル数: " +
+                    result.scannedFiles,
+                source = "Android"
+            )
+
+            return
+        }
+
+        saveRunHistory(true)
+
+        Toast.makeText(
+            this,
+            "Android Previewを起動しました (" +
+                result.scannedFiles +
+                " files)",
+            Toast.LENGTH_SHORT
+        ).show()
     }
 
     private fun validateCode(
