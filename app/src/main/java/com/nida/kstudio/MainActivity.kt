@@ -86,6 +86,7 @@ class MainActivity : Activity() {
     private lateinit var saveCommitMessageInput: EditText
     private lateinit var saveCommitButton: Button
     private lateinit var saveCommitCancelButton: Button
+    private var imagePathPopup: PopupWindow? = null
 
     private data class ManagedEntry(
         val uri: Uri,
@@ -385,114 +386,6 @@ class MainActivity : Activity() {
                 override fun afterTextChanged(s: Editable?) {}
             }
         )
-
-        // Image path shortcut
-
-        fun showImagePathSuggestionsIfNeeded() {
-            val cursor = codeEditor.selectionStart
-            if (cursor < 4) {
-                hideImagePathSuggestions()
-                return
-            }
-
-            val before = codeEditor.text.toString().substring(0, cursor)
-            if (!Regex("(^|\\s)pass$").containsMatchIn(before)) {
-                hideImagePathSuggestions()
-                return
-            }
-
-            val root = folderRootUri ?: run {
-                hideImagePathSuggestions()
-                return
-            }
-
-            val results = mutableListOf<String>()
-            collectImageFiles(root, "", results)
-            showImagePathSuggestions(results)
-        }
-
-        fun collectImageFiles(uri: Uri, relativePath: String, results: MutableList<String>) {
-            if (results.size >= 30) return
-
-            val children = queryFolder(uri)
-            for (child in children) {
-                val name = getDocumentName(child)
-                val relative = if (relativePath.isBlank()) name else relativePath + "/" + name
-                val mime = contentResolver.getType(child) ?: ""
-                val lower = name.lowercase(Locale.getDefault())
-
-                if (mime.startsWith("image/") || lower.endsWith(".png") ||
-                    lower.endsWith(".jpg") || lower.endsWith(".jpeg") ||
-                    lower.endsWith(".webp") || lower.endsWith(".gif") ||
-                    lower.endsWith(".bmp") || lower.endsWith(".svg") ||
-                    lower.endsWith(".img")
-                ) {
-                    results.add(relative)
-                }
-
-                if (isDirectory(child)) {
-                    collectImageFiles(child, relative, results)
-                }
-
-                if (results.size >= 30) return
-            }
-        }
-
-        fun showImagePathSuggestions(paths: List<String>) {
-            hideImagePathSuggestions()
-            if (paths.isEmpty()) return
-
-            val list = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(dpToPx(8), dpToPx(8), dpToPx(8), dpToPx(8))
-            }
-
-            paths.forEach { path ->
-                val item = TextView(this).apply {
-                    text = path
-                    textSize = 14f
-                    setTextColor(primaryTextColor())
-                    setPadding(dpToPx(12), dpToPx(10), dpToPx(12), dpToPx(10))
-                    setOnClickListener {
-                        val cursor = codeEditor.selectionStart
-                        val text = codeEditor.text
-                        val before = text.substring(0, cursor)
-                        val start = before.lastIndexOf("pass")
-                        if (start >= 0) {
-                            text.replace(start, cursor, path)
-                            codeEditor.setSelection(start + path.length)
-                        }
-                        hideImagePathSuggestions()
-                    }
-                }
-                list.addView(item, LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                ))
-            }
-
-            imagePathPopup = PopupWindow(
-                list,
-                dpToPx(320),
-                dpToPx(285),
-                true
-            ).apply {
-                elevation = dpToPx(8).toFloat()
-                setBackgroundDrawable(getDrawable(R.drawable.rounded_panel))
-                isOutsideTouchable = true
-            }
-
-            imagePathPopup?.showAsDropDown(
-                codeEditor,
-                dpToPx(8),
-                -dpToPx(285)
-            )
-        }
-
-        fun hideImagePathSuggestions() {
-            imagePathPopup?.dismiss()
-            imagePathPopup = null
-        }
 
         // Editor Actions
 
@@ -1997,6 +1890,129 @@ class MainActivity : Activity() {
         }
 
         return result
+    }
+
+    // Image path shortcut
+
+    private fun showImagePathSuggestionsIfNeeded() {
+        val cursor = codeEditor.selectionStart
+        if (cursor < 4) {
+            hideImagePathSuggestions()
+            return
+        }
+
+        val before = codeEditor.text.toString().substring(0, cursor)
+        if (!Regex("(^|\\\\s)pass$").containsMatchIn(before)) {
+            hideImagePathSuggestions()
+            return
+        }
+
+        val root = folderRootUri ?: run {
+            hideImagePathSuggestions()
+            return
+        }
+
+        val results = mutableListOf<String>()
+        collectImageFiles(root, "", results)
+        showImagePathSuggestions(results)
+    }
+
+    private fun collectImageFiles(
+        uri: Uri,
+        relativePath: String,
+        results: MutableList<String>
+    ) {
+        if (results.size >= 30) return
+
+        val children = queryFolder(uri)
+        for (child in children) {
+            val name = child.name
+            val relative = if (relativePath.isBlank()) {
+                name
+            } else {
+                relativePath + "/" + name
+            }
+            val mime = child.mimeType
+            val lower = name.lowercase(Locale.getDefault())
+
+            if (mime.startsWith("image/") ||
+                lower.endsWith(".png") ||
+                lower.endsWith(".jpg") ||
+                lower.endsWith(".jpeg") ||
+                lower.endsWith(".webp") ||
+                lower.endsWith(".gif") ||
+                lower.endsWith(".bmp") ||
+                lower.endsWith(".svg") ||
+                lower.endsWith(".img")
+            ) {
+                results.add(relative)
+            }
+
+            if (child.isDirectory) {
+                collectImageFiles(child.uri, relative, results)
+            }
+
+            if (results.size >= 30) return
+        }
+    }
+
+    private fun showImagePathSuggestions(paths: List<String>) {
+        hideImagePathSuggestions()
+        if (paths.isEmpty()) return
+
+        val list = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dpToPx(8), dpToPx(8), dpToPx(8), dpToPx(8))
+        }
+
+        paths.forEach { path ->
+            val item = TextView(this).apply {
+                text = path
+                textSize = 14f
+                setTextColor(primaryTextColor())
+                setPadding(dpToPx(12), dpToPx(10), dpToPx(12), dpToPx(10))
+                setOnClickListener {
+                    val cursor = codeEditor.selectionStart
+                    val text = codeEditor.text
+                    val before = text.substring(0, cursor)
+                    val start = before.lastIndexOf("pass")
+                    if (start >= 0) {
+                        text.replace(start, cursor, path)
+                        codeEditor.setSelection(start + path.length)
+                    }
+                    hideImagePathSuggestions()
+                }
+            }
+            list.addView(
+                item,
+                LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+            )
+        }
+
+        imagePathPopup = PopupWindow(
+            list,
+            dpToPx(320),
+            dpToPx(285),
+            true
+        ).apply {
+            elevation = dpToPx(8).toFloat()
+            setBackgroundDrawable(getDrawable(R.drawable.rounded_panel))
+            isOutsideTouchable = true
+        }
+
+        imagePathPopup?.showAsDropDown(
+            codeEditor,
+            dpToPx(8),
+            -dpToPx(285)
+        )
+    }
+
+    private fun hideImagePathSuggestions() {
+        imagePathPopup?.dismiss()
+        imagePathPopup = null
     }
 
     private fun queryFolder(
