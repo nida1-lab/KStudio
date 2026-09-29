@@ -825,6 +825,138 @@ class MainActivity : Activity() {
             .show()
     }
 
+    private fun showSaveCommitPanel() {
+        if (currentFileUri == null) {
+            Toast.makeText(
+                this,
+                "保存するファイルがありません",
+                Toast.LENGTH_SHORT
+            ).show()
+            return
+        }
+
+        if (!::saveCommitPanel.isInitialized) {
+            buildSaveCommitPanel()
+        }
+
+        saveCommitFileNameInput.setText(currentFileName)
+        saveCommitMessageInput.setText("")
+
+        homeTab.visibility = View.GONE
+        editorContainer.visibility = View.GONE
+        previewArea.visibility = View.GONE
+        projectTab.visibility = View.GONE
+        fileTab.visibility = View.GONE
+        historyTab.visibility = View.GONE
+        saveCommitPanel.visibility = View.VISIBLE
+        bottomHeader.visibility = View.GONE
+        searchBar.visibility = View.GONE
+        projectBar.visibility = View.VISIBLE
+    }
+
+    private fun buildSaveCommitPanel() {
+        saveCommitPanel = LinearLayout(this)
+        saveCommitPanel.orientation = LinearLayout.VERTICAL
+        saveCommitPanel.setPadding(
+            dpToPx(16),
+            dpToPx(8),
+            dpToPx(16),
+            dpToPx(16)
+        )
+
+        val title = TextView(this)
+        title.text = "編集を保存"
+        title.textSize = 22f
+        saveCommitPanel.addView(title)
+
+        val fileLabel = TextView(this)
+        fileLabel.text = "ファイル名"
+        fileLabel.setPadding(0, dpToPx(18), 0, dpToPx(6))
+        saveCommitPanel.addView(fileLabel)
+
+        saveCommitFileNameInput = EditText(this)
+        saveCommitFileNameInput.setSingleLine(true)
+        saveCommitFileNameInput.isEnabled = false
+        saveCommitPanel.addView(
+            saveCommitFileNameInput,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dpToPx(52)
+            )
+        )
+
+        val messageLabel = TextView(this)
+        messageLabel.text = "編集内容の説明（任意）"
+        messageLabel.setPadding(0, dpToPx(18), 0, dpToPx(6))
+        saveCommitPanel.addView(messageLabel)
+
+        saveCommitMessageInput = EditText(this)
+        saveCommitMessageInput.hint = "編集内容を入力"
+        saveCommitMessageInput.gravity = Gravity.TOP or Gravity.START
+        saveCommitMessageInput.minLines = 4
+        saveCommitPanel.addView(
+            saveCommitMessageInput,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dpToPx(120)
+            )
+        )
+
+        val spacer = View(this)
+        saveCommitPanel.addView(
+            spacer,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0,
+                1f
+            )
+        )
+
+        val buttons = LinearLayout(this)
+        buttons.orientation = LinearLayout.HORIZONTAL
+
+        saveCommitCancelButton = Button(this)
+        saveCommitCancelButton.text = "キャンセル"
+        saveCommitCancelButton.setOnClickListener {
+            showEditorScreen()
+        }
+
+        saveCommitButton = Button(this)
+        saveCommitButton.text = "保存する"
+        saveCommitButton.setOnClickListener {
+            saveEditCommit()
+        }
+
+        buttons.addView(
+            saveCommitCancelButton,
+            LinearLayout.LayoutParams(
+                0,
+                dpToPx(48),
+                1f
+            )
+        )
+        buttons.addView(
+            saveCommitButton,
+            LinearLayout.LayoutParams(
+                0,
+                dpToPx(48),
+                1f
+            ).apply {
+                marginStart = dpToPx(6)
+            }
+        )
+
+        saveCommitPanel.addView(buttons)
+
+        (workArea as LinearLayout).addView(
+            saveCommitPanel,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.MATCH_PARENT
+            )
+        )
+    }
+
     // Main Menu
 
     private fun showMainMenu(
