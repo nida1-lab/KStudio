@@ -771,6 +771,75 @@ class MainActivity : Activity() {
         )
     }
 
+    // Project Setup
+
+    private fun startNewProject() {
+
+        val folder = folderRootUri
+        if (folder == null) {
+            openFolderPicker()
+            return
+        }
+
+        askProjectName()
+    }
+
+    private fun askProjectName() {
+
+        val input =
+            EditText(this).apply {
+                hint = "プロジェクト名"
+                setSingleLine(true)
+                setText(
+                    getFolderName(folderRootUri ?: Uri.EMPTY)
+                        .ifBlank { "App" }
+                )
+                selectAll()
+            }
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle("プロジェクト名を設定")
+            .setMessage(
+                "この名前はKStudioのHOMEに表示されます。\n" +
+                "実際のフォルダ名は変更しません。"
+            )
+            .setView(input)
+            .setNegativeButton("キャンセル", null)
+            .setPositiveButton("開始") { _, _ ->
+
+                val name =
+                    input.text.toString().trim()
+
+                if (name.isEmpty()) {
+                    Toast.makeText(
+                        this,
+                        "プロジェクト名を入力してください",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    return@setPositiveButton
+                }
+
+                if (name.length > 80) {
+                    Toast.makeText(
+                        this,
+                        "プロジェクト名が長すぎます",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                    return@setPositiveButton
+                }
+
+                homeProjectTitle.text = "🗂️ $name"
+                showHomeTab()
+
+                Toast.makeText(
+                    this,
+                    "「$name」を開始しました",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+            .show()
+    }
+
     // Folder Picker
 
     private fun openFolderPicker() {
