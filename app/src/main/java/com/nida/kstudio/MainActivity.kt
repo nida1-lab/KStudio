@@ -1002,6 +1002,34 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun saveEditHistory(
+        fileName: String,
+        description: String
+    ) {
+        val preferences = getSharedPreferences(
+            "KStudio",
+            Context.MODE_PRIVATE
+        )
+
+        val oldHistory =
+            preferences.getString("history", "") ?: ""
+
+        val time = SimpleDateFormat(
+            "yyyy-MM-dd HH:mm",
+            Locale.getDefault()
+        ).format(Date())
+
+        val entry =
+            time + "  Save  " + fileName + " : " + description + "\\n"
+
+        preferences.edit()
+            .putString(
+                "history",
+                entry + oldHistory
+            )
+            .apply()
+    }
+
     // Main Menu
 
     private fun showMainMenu(
