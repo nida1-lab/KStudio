@@ -116,7 +116,7 @@ class CommunityActivity : Activity() {
         header.addView(Button(this).apply {
             text = "←"
             textSize = 20f
-            styleButton()
+            styleButton(this)
             setOnClickListener { handleBack() }
         }, LinearLayout.LayoutParams(dp(58), dp(46)))
 
@@ -135,7 +135,7 @@ class CommunityActivity : Activity() {
         header.addView(Button(this).apply {
             text = "＋"
             textSize = 22f
-            styleButton()
+            styleButton(this)
             contentDescription = "新しいスレッド"
             setOnClickListener { showNewThreadPanel() }
         }, LinearLayout.LayoutParams(dp(50), dp(46)).apply {
@@ -271,7 +271,7 @@ class CommunityActivity : Activity() {
                 Button(this).apply {
                     text = "#" + tag
                     textSize = 12f
-                    styleButton()
+                    styleButton(this)
                     setOnClickListener {
                         searchInput.setText("#" + tag)
                         searchInput.setSelection(searchInput.length())
@@ -344,7 +344,7 @@ class CommunityActivity : Activity() {
 
         val postButton = Button(this).apply {
             text = "送信"
-            styleButton()
+            styleButton(this)
             setOnClickListener { submitPost(thread) }
         }
         root.addView(postButton, LinearLayout.LayoutParams(-1, dp(46)).apply {
@@ -441,10 +441,10 @@ class CommunityActivity : Activity() {
         values.forEach { value ->
             suggestionPanel.addView(
                 Button(this).apply {
-                    text = if (symbol == '@') "@" + value else "#" + value
+                    setText(if (symbol == '@') "@" + value else "#" + value)
                     textSize = 13f
                     gravity = Gravity.START or Gravity.CENTER_VERTICAL
-                    styleButton()
+                    styleButton(this)
                     setOnClickListener {
                         val start = match.range.first
                         val end = cursor
@@ -526,8 +526,8 @@ class CommunityActivity : Activity() {
         panel.addView(titleInput, LinearLayout.LayoutParams(-1, dp(50)).apply { topMargin = dp(10) })
 
         val buttons = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        val cancel = Button(this).apply { text = "キャンセル"; styleButton() }
-        val create = Button(this).apply { text = "作成"; styleButton() }
+        val cancel = Button(this).apply { text = "キャンセル"; styleButton(this) }
+        val create = Button(this).apply { text = "作成"; styleButton(this) }
         buttons.addView(cancel, LinearLayout.LayoutParams(0, dp(46), 1f))
         buttons.addView(create, LinearLayout.LayoutParams(0, dp(46), 1f).apply { marginStart = dp(12) })
         panel.addView(buttons, LinearLayout.LayoutParams(-1, dp(58)).apply { topMargin = dp(12) })
@@ -698,7 +698,7 @@ class CommunityActivity : Activity() {
         addText(panel, message, 14f, textPrimary(), false, top = 10)
         val close = Button(this).apply {
             text = "閉じる"
-            styleButton()
+            styleButton(this)
         }
         panel.addView(close, LinearLayout.LayoutParams(-1, dp(46)).apply {
             topMargin = dp(14)
