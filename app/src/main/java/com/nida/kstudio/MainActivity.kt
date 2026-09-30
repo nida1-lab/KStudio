@@ -858,6 +858,7 @@ class MainActivity : Activity() {
             text = "編集を保存"
             textSize = 12f
             minWidth = 0
+            styleKStudioButton(this)
             setOnClickListener { showSaveCommitPanel() }
         }
 
