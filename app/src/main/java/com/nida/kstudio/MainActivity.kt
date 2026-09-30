@@ -2,6 +2,7 @@ package com.nida.kstudio
 
 import android.app.Activity
 import android.os.Bundle
+import android.os.Build
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.content.ClipData
@@ -28,6 +29,8 @@ import android.widget.ArrayAdapter
 import android.widget.TextView
 import android.widget.ScrollView
 import android.widget.Toast
+import android.window.OnBackInvokedCallback
+import android.window.OnBackInvokedDispatcher
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -43,6 +46,8 @@ class MainActivity : Activity() {
     private lateinit var previewContainer: FrameLayout
 
     private lateinit var topMenuBar: View
+    private lateinit var pageTitle: TextView
+    private lateinit var accountButton: Button
     private lateinit var projectBar: View
     private lateinit var searchBar: View
     private lateinit var editorContainer: View
@@ -109,8 +114,9 @@ class MainActivity : Activity() {
     private var isDirty = false
     private var fullscreen = false
     private var editorPreviewSwapped = false
-    private var swapAnimating = false
     private var projectName = "App"
+    private var currentScreen = "HOME"
+    private var backWarningShowing = false
 
     private var folderRootUri: Uri? = null
     private var currentFolderUri: Uri? = null
@@ -127,6 +133,13 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
 
         setContentView(R.layout.activity_main)
+
+        if (Build.VERSION.SDK_INT >= 33) {
+            onBackInvokedDispatcher.registerOnBackInvokedCallback(
+                OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                OnBackInvokedCallback { handleBackNavigation() }
+            )
+        }
 
         codeEditor =
             findViewById(R.id.codeEditor)
@@ -213,11 +226,8 @@ class MainActivity : Activity() {
 
         menuButton.setTextColor(primaryTextColor())
 
-        val topHomeButton = findViewById<TextView>(R.id.topHomeButton)
-        val topFolderButton = findViewById<TextView>(R.id.topFolderButton)
-        val topHistoryButton = findViewById<TextView>(R.id.topHistoryButton)
-        val topProjectsButton = findViewById<TextView>(R.id.topProjectsButton)
-        val topFilesButton = findViewById<TextView>(R.id.topFilesButton)
+        pageTitle = findViewById(R.id.pageTitle)
+        accountButton = findViewById(R.id.accountButton)
 
         fullscreenButton =
             findViewById(
@@ -503,12 +513,9 @@ class MainActivity : Activity() {
 
         // Menu
 
-        menuButton.setOnClickListener {
-
-            showMainMenu(
-                menuButton
-            )
-        }
+        configurePageHeader("HOME", true)
+        menuButton.setOnClickListener { showMainMenu(menuButton) }
+        accountButton.setOnClickListener { showAccountDialog() }
 
         swapButton.setOnClickListener {
             swapEditorAndPreview()
@@ -559,28 +566,6 @@ class MainActivity : Activity() {
 
         historyClearButton.setOnClickListener {
             clearHistory()
-        }
-
-        // Top Navigation
-
-        topHomeButton.setOnClickListener {
-            showHomeTab()
-        }
-
-        topFolderButton.setOnClickListener {
-            openFolderPicker()
-        }
-
-        topHistoryButton.setOnClickListener {
-            showHistory()
-        }
-
-        topProjectsButton.setOnClickListener {
-            showProjects()
-        }
-
-        topFilesButton.setOnClickListener {
-            showFileManager()
         }
 
         // Fullscreen
@@ -657,6 +642,49 @@ class MainActivity : Activity() {
         ) {
             showStartupScreen()
         }
+    }
+
+    @Suppress("DEPRECATION")
+    override fun onBackPressed() {
+        if (Build.VERSION.SDK_INT < 33) {
+            handleBackNavigation()
+        } else {
+            super.onBackPressed()
+        }
+    }
+
+    private fun handleBackNavigation() {
+        if (backWarningShowing) return
+
+        when (currentScreen) {
+            "EDITOR" -> {
+                if (isDirty) {
+                    backWarningShowing = true
+                    showKStudioConfirm(
+                        "編集内容が保存されていません",
+                        "この画面を離れると、保存していない変更が失われる可能性があります。",
+                        "離れる"
+                    ) {
+                        backWarningShowing = false
+                        isDirty = false
+                        showHomeTab()
+                    }
+                } else {
+                    showHomeTab()
+                }
+            }
+            "PROJECTS", "FILES", "HISTORY" -> showHomeTab()
+            "HOME" -> finish()
+            else -> finish()
+        }
+    }
+
+    private fun configurePageHeader(title: String, isHome: Boolean) {
+        currentScreen = title
+        pageTitle.text = title
+        accountButton.visibility = if (isHome) View.VISIBLE else View.GONE
+        val menu = findViewById<Button>(R.id.menuButton)
+        menu.text = if (isHome) "≡" else "←"
     }
 
     override fun onSaveInstanceState(
@@ -786,7 +814,6 @@ class MainActivity : Activity() {
     }
 
     private fun showEditorScreen() {
-
         if (::saveCommitPanel.isInitialized) saveCommitPanel.visibility = View.GONE
         homeTab.visibility = View.GONE
         editorContainer.visibility = View.VISIBLE
@@ -799,96 +826,32 @@ class MainActivity : Activity() {
         projectBar.visibility = View.VISIBLE
 
         previewTitle.text = "Preview"
+        configurePageHeader(currentFileName.ifBlank { "コード" }, false)
+        findViewById<Button>(R.id.menuButton).setOnClickListener { handleBackNavigation() }
 
         applyEditorPreviewOrder()
         updatePreview()
     }
-
-
     private fun setupHomeAndSaveUi() {
-
-        val homeLayout = homeTab as LinearLayout
-        val fileScroll = homeLayout.getChildAt(1)
-
-        homeLayout.removeAllViews()
-
-        val homeHeader = LinearLayout(this)
-        homeHeader.orientation = LinearLayout.HORIZONTAL
-        homeHeader.gravity = Gravity.CENTER_VERTICAL
-
-        homeProjectTitle.layoutParams =
-            LinearLayout.LayoutParams(
-                0,
-                dpToPx(56),
-                1f
-            )
-
-        homeHeader.addView(homeProjectTitle)
-
-        homeMoreButton = Button(this).apply {
-            text = "..."
-            textSize = 20f
-            minWidth = 0
-            setOnClickListener {
-                showHomeActionsMenu(this)
-            }
-        }
-
-        homeHeader.addView(
-            homeMoreButton,
-            LinearLayout.LayoutParams(
-                dpToPx(48),
-                dpToPx(44)
-            )
-        )
-
-        homeLayout.addView(
-            homeHeader,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                dpToPx(56)
-            )
-        )
-
-        homeLayout.addView(
-            fileScroll,
-            LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                0,
-                1f
-            )
-        )
+        homeProjectTitle.visibility = View.GONE
 
         saveCommitOpenButton = Button(this).apply {
             text = "編集を保存"
             textSize = 12f
-            setTextColor(Color.WHITE)
-            setBackgroundColor(Color.rgb(45, 164, 78))
             minWidth = 0
-            setOnClickListener {
-                showSaveCommitPanel()
-            }
+            setOnClickListener { showSaveCommitPanel() }
         }
 
         val projectLayout = projectBar as LinearLayout
         val title = findViewById<TextView>(R.id.projectName)
-
-        title.layoutParams =
-            LinearLayout.LayoutParams(
-                0,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                1f
-            )
-
+        title.layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         projectLayout.addView(
             saveCommitOpenButton,
-            LinearLayout.LayoutParams(
-                dpToPx(104),
-                dpToPx(42)
-            )
+            LinearLayout.LayoutParams(dpToPx(108), dpToPx(42)).apply {
+                marginStart = dpToPx(10)
+            }
         )
     }
-
     private fun showHomeActionsMenu(anchor: View) {
         val menu = LinearLayout(this)
         menu.orientation = LinearLayout.VERTICAL
@@ -1698,9 +1661,70 @@ class MainActivity : Activity() {
     }
 
     private fun showAccountDialog() {
-        showKStudioMessage("アカウント", "アカウント機能は準備中です。")
-    }
+        val root = FrameLayout(this)
+        val scrim = View(this).apply { setBackgroundColor(Color.argb(110, 0, 0, 0)) }
+        root.addView(scrim, FrameLayout.LayoutParams(-1, -1))
 
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dpToPx(20), dpToPx(18), dpToPx(20), dpToPx(18))
+            background = roundedBackground(surfaceColor(), 16)
+        }
+        panel.addView(TextView(this).apply {
+            text = "アカウント"
+            textSize = 22f
+            setTextColor(primaryTextColor())
+            setTypeface(null, android.graphics.Typeface.BOLD)
+        })
+        panel.addView(TextView(this).apply {
+            text = "コミュニティや共同コーディングで表示する登録名です。"
+            textSize = 13f
+            setTextColor(secondaryTextColor())
+            setPadding(0, dpToPx(8), 0, dpToPx(12))
+        })
+        val input = EditText(this).apply {
+            hint = "アカウント名"
+            setSingleLine(true)
+            setText(getAccountName())
+            selectAll()
+            setPadding(dpToPx(12), dpToPx(10), dpToPx(12), dpToPx(10))
+        }
+        panel.addView(input, LinearLayout.LayoutParams(-1, dpToPx(52)))
+
+        val buttons = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val cancel = Button(this).apply { text = "キャンセル"; styleKStudioButton(this) }
+        val save = Button(this).apply { text = "保存"; styleKStudioButton(this) }
+        buttons.addView(cancel, LinearLayout.LayoutParams(0, dpToPx(46), 1f))
+        buttons.addView(save, LinearLayout.LayoutParams(0, dpToPx(46), 1f).apply { marginStart = dpToPx(12) })
+        panel.addView(buttons, LinearLayout.LayoutParams(-1, dpToPx(58)).apply { topMargin = dpToPx(12) })
+
+        root.addView(panel, FrameLayout.LayoutParams(
+            minOf(dpToPx(380), resources.displayMetrics.widthPixels - dpToPx(32)),
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            Gravity.CENTER
+        ))
+        lateinit var popup: PopupWindow
+        popup = PopupWindow(root, -1, -1, true).apply {
+            isOutsideTouchable = true
+            setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        }
+        cancel.setOnClickListener { popup.dismiss() }
+        scrim.setOnClickListener { popup.dismiss() }
+        save.setOnClickListener {
+            val name = input.text.toString().trim()
+            if (name.isBlank() || name.length > 40) {
+                popup.dismiss()
+                showKStudioMessage("アカウント", "アカウント名は1〜40文字で設定してください。")
+                return@setOnClickListener
+            }
+            getSharedPreferences("KStudio", Context.MODE_PRIVATE).edit()
+                .putString("account_name", name)
+                .apply()
+            popup.dismiss()
+            if (currentScreen == "HOME") renderHomeFiles()
+        }
+        popup.showAtLocation(topMenuBar, Gravity.CENTER, 0, 0)
+    }
     private fun showKStudioMessage(titleText: String, message: String) {
         val root = FrameLayout(this)
         val scrim = View(this).apply {
@@ -4210,7 +4234,6 @@ class MainActivity : Activity() {
     // Home
 
     private fun showStartupScreen() {
-
         homeTab.visibility = View.VISIBLE
         editorContainer.visibility = View.GONE
         previewArea.visibility = View.GONE
@@ -4221,23 +4244,14 @@ class MainActivity : Activity() {
         searchBar.visibility = View.GONE
         projectBar.visibility = View.GONE
 
-        homeProjectTitle.text = projectName
-        setSimpleIcon(homeProjectTitle, R.drawable.ic_project_simple)
-        setSimpleIcon(homeProjectTitle, R.drawable.ic_project_simple)
-
+        configurePageHeader("HOME", true)
+        findViewById<Button>(R.id.menuButton).setOnClickListener {
+            showMainMenu(findViewById(R.id.menuButton))
+        }
         renderHomeFiles()
     }
-
     private fun showHomeTab() {
-
-        if (fullscreen) {
-            togglePreviewFullscreen()
-        }
-
-        if (folderRootUri == null || currentFolderUri == null) {
-            showStartupScreen()
-            return
-        }
+        if (fullscreen) togglePreviewFullscreen()
 
         if (::saveCommitPanel.isInitialized) saveCommitPanel.visibility = View.GONE
         homeTab.visibility = View.VISIBLE
@@ -4250,100 +4264,344 @@ class MainActivity : Activity() {
         searchBar.visibility = View.GONE
         projectBar.visibility = View.GONE
 
-        homeProjectTitle.text =
-            projectName
-
+        configurePageHeader("HOME", true)
+        findViewById<Button>(R.id.menuButton).setOnClickListener {
+            showMainMenu(findViewById(R.id.menuButton))
+        }
         renderHomeFiles()
     }
-
     private fun renderHomeFiles() {
-
         homeFileList.removeAllViews()
 
-        val root =
-            folderRootUri
-                ?: return
+        val accountName = getAccountName()
+        homeFileList.addView(TextView(this).apply {
+            text = if (accountName.isBlank()) "KStudio HOME" else "ようこそ、" + accountName
+            textSize = 23f
+            setTextColor(primaryTextColor())
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setPadding(0, dpToPx(12), 0, dpToPx(16))
+        })
 
-        val entries =
-            queryFolder(root)
+        addHomeSection("プロジェクト", "すべて表示", { showProjects() }, buildHomeProjectSection())
+        addHomeSection("履歴", "すべて表示", { showHistory() }, buildHomeHistorySection())
+        addHomeSection(
+            "コミュニティ",
+            "すべて表示",
+            { startActivity(Intent(this, CommunityActivity::class.java)) },
+            buildHomeCommunitySection()
+        )
 
-        if (entries.isEmpty()) {
-            val empty = TextView(this).apply {
-                text =
-                    "このフォルダは空です。\n\n" +
-                    "「ファイル」から新しいファイルを作成できます。"
-                textSize = 15f
-                setTextColor(secondaryTextColor())
-                setPadding(
-                    dpToPx(8),
-                    dpToPx(20),
-                    dpToPx(8),
-                    dpToPx(20)
-                )
+        homeFileList.addView(TextView(this).apply {
+            text = "クラウド"
+            textSize = 18f
+            setTextColor(primaryTextColor())
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setPadding(0, dpToPx(16), 0, dpToPx(10))
+        })
+        homeFileList.addView(TextView(this).apply {
+            text = cloudUsageText()
+            textSize = 14f
+            setTextColor(secondaryTextColor())
+            setPadding(0, 0, 0, dpToPx(8))
+        })
+
+        val quota = getCloudQuotaBytes()
+        val used = getCloudUsedBytes()
+        val ratio = if (quota > 0L) {
+            (used.toDouble() / quota.toDouble()).coerceIn(0.0, 1.0)
+        } else 0.0
+
+        val bar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            background = roundedBackground(lineNumberSurfaceColor(), 8)
+        }
+        bar.addView(
+            View(this).apply {
+                setBackgroundColor(if (quota > 0L) Color.rgb(0, 128, 255) else secondaryTextColor())
+            },
+            LinearLayout.LayoutParams(0, dpToPx(16), ratio.toFloat())
+        )
+        bar.addView(
+            View(this).apply { setBackgroundColor(editorSurfaceColor()) },
+            LinearLayout.LayoutParams(0, dpToPx(16), (1f - ratio).toFloat())
+        )
+        homeFileList.addView(
+            bar,
+            LinearLayout.LayoutParams(-1, dpToPx(16)).apply {
+                bottomMargin = dpToPx(24)
             }
-            homeFileList.addView(empty)
-            return
-        }
-
-        entries.forEach { entry ->
-
-            val row =
-                TextView(this).apply {
-                    text = entry.name
-                    setSimpleIcon(
-                        this,
-                        if (entry.isDirectory) {
-                            R.drawable.ic_folder_simple
-                        } else {
-                            R.drawable.ic_file_simple
-                        }
-                    )
-
-                    textSize = 17f
-                    setTextColor(primaryTextColor())
-                    gravity = Gravity.CENTER_VERTICAL
-                    setPadding(
-                        dpToPx(10),
-                        dpToPx(14),
-                        dpToPx(10),
-                        dpToPx(14)
-                    )
-                    isClickable = true
-                    isFocusable = true
-
-                    setOnClickListener {
-                        if (entry.isDirectory) {
-                            openHomeFolder(entry.uri)
-                        } else if (
-                            isSupportedTextFile(
-                                entry.name,
-                                entry.mimeType
-                            )
-                        ) {
-                            openManagedFile(
-                                entry.uri,
-                                entry.name
-                            )
-                        } else {
-                            Toast.makeText(
-                                this@MainActivity,
-                                "このファイルはKStudioで編集できません",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    }
-                }
-
-            homeFileList.addView(
-                row,
-                LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    dpToPx(54)
-                )
-            )
-        }
+        )
     }
 
+    private fun addHomeSection(
+        title: String,
+        actionText: String,
+        action: () -> Unit,
+        content: View
+    ) {
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        header.addView(
+            TextView(this).apply {
+                text = title
+                textSize = 18f
+                setTextColor(primaryTextColor())
+                setTypeface(null, android.graphics.Typeface.BOLD)
+            },
+            LinearLayout.LayoutParams(0, dpToPx(46), 1f)
+        )
+        header.addView(
+            Button(this).apply {
+                text = actionText
+                textSize = 13f
+                styleKStudioButton(this)
+                setOnClickListener { action() }
+            },
+            LinearLayout.LayoutParams(dpToPx(92), dpToPx(44)).apply {
+                marginStart = dpToPx(12)
+            }
+        )
+        homeFileList.addView(header)
+        homeFileList.addView(content)
+        homeFileList.addView(
+            View(this).apply { setBackgroundColor(secondaryTextColor()) },
+            LinearLayout.LayoutParams(-1, dpToPx(1)).apply {
+                topMargin = dpToPx(14)
+                bottomMargin = dpToPx(16)
+            }
+        )
+    }
+
+    private fun buildHomeProjectSection(): View {
+        val scroll = android.widget.HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+        }
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val items = recentFolders.take(6)
+        if (items.isEmpty()) {
+            row.addView(TextView(this).apply {
+                text = "まだプロジェクトがありません"
+                textSize = 14f
+                setTextColor(secondaryTextColor())
+                setPadding(dpToPx(4), dpToPx(12), 0, dpToPx(12))
+            })
+        } else {
+            items.forEach { uri ->
+                row.addView(
+                    buildProjectCard(uri, true),
+                    LinearLayout.LayoutParams(dpToPx(280), ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                        marginEnd = dpToPx(12)
+                    }
+                )
+            }
+        }
+        scroll.addView(row)
+        return scroll
+    }
+
+    private fun buildHomeHistorySection(): View {
+        val container = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        readRecentHistory(3).forEach { item ->
+            container.addView(
+                buildHistorySummaryCard(item),
+                LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                    bottomMargin = dpToPx(10)
+                }
+            )
+        }
+        if (container.childCount == 0) {
+            container.addView(TextView(this).apply {
+                text = "まだ履歴はありません"
+                textSize = 14f
+                setTextColor(secondaryTextColor())
+                setPadding(dpToPx(4), dpToPx(12), 0, dpToPx(12))
+            })
+        }
+        return container
+    }
+
+    private fun buildHomeCommunitySection(): View {
+        val scroll = android.widget.HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+        }
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val items = readCommunityPosts(6)
+        if (items.isEmpty()) {
+            row.addView(TextView(this).apply {
+                text = "まだ投稿はありません"
+                textSize = 14f
+                setTextColor(secondaryTextColor())
+                setPadding(dpToPx(4), dpToPx(12), 0, dpToPx(12))
+            })
+        } else {
+            items.forEach { item ->
+                row.addView(
+                    LinearLayout(this).apply {
+                        orientation = LinearLayout.VERTICAL
+                        setPadding(dpToPx(14), dpToPx(14), dpToPx(14), dpToPx(14))
+                        background = roundedBackground(editorSurfaceColor(), 14)
+                        addView(TextView(this@MainActivity).apply {
+                            text = "@" + item.first
+                            textSize = 15f
+                            setTextColor(primaryTextColor())
+                            setTypeface(null, android.graphics.Typeface.BOLD)
+                        })
+                        addView(TextView(this@MainActivity).apply {
+                            text = item.second
+                            textSize = 14f
+                            setTextColor(primaryTextColor())
+                            maxLines = 4
+                            setPadding(0, dpToPx(6), 0, 0)
+                        })
+                    },
+                    LinearLayout.LayoutParams(dpToPx(280), ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                        marginEnd = dpToPx(12)
+                    }
+                )
+            }
+        }
+        scroll.addView(row)
+        return scroll
+    }
+
+    private fun buildProjectCard(uri: Uri, compact: Boolean): View {
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dpToPx(14), dpToPx(14), dpToPx(14), dpToPx(14))
+            background = roundedBackground(editorSurfaceColor(), 14)
+            isClickable = true
+            isFocusable = true
+        }
+        card.addView(TextView(this).apply {
+            text = getProjectDisplayName(uri)
+            textSize = if (compact) 17f else 19f
+            setTextColor(primaryTextColor())
+            setTypeface(null, android.graphics.Typeface.BOLD)
+        })
+        card.addView(TextView(this).apply {
+            text = "最終編集時間: " + getFolderLastModified(uri)
+            textSize = 13f
+            setTextColor(secondaryTextColor())
+            setPadding(0, dpToPx(6), 0, 0)
+        })
+        card.addView(TextView(this).apply {
+            text = "編集者: " + getAccountName().ifBlank { "未設定" }
+            textSize = 13f
+            setTextColor(secondaryTextColor())
+            setPadding(0, dpToPx(4), 0, 0)
+        })
+        card.addView(TextView(this).apply {
+            text = "クラウドへのバックアップ: " + if (isCloudBackupEnabled(uri)) "有効" else "無効"
+            textSize = 13f
+            setTextColor(secondaryTextColor())
+            setPadding(0, dpToPx(4), 0, 0)
+        })
+        if (!compact) {
+            card.addView(
+                Button(this).apply {
+                    text = "共同コーディング"
+                    styleKStudioButton(this)
+                    setOnClickListener { openCollaboration(uri) }
+                },
+                LinearLayout.LayoutParams(-1, dpToPx(46)).apply {
+                    topMargin = dpToPx(12)
+                }
+            )
+        }
+        card.setOnClickListener { openRecentProject(uri) }
+        return card
+    }
+
+    private fun getProjectDisplayName(uri: Uri): String =
+        if (uri == folderRootUri) projectName else getFolderName(uri).ifBlank { "プロジェクト" }
+
+    private fun getAccountName(): String =
+        getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+            .getString("account_name", "")?.trim().orEmpty()
+
+    private fun getCloudQuotaBytes(): Long =
+        getSharedPreferences("KStudio", Context.MODE_PRIVATE).getLong("cloud_quota_bytes", 0L)
+
+    private fun getCloudUsedBytes(): Long =
+        getSharedPreferences("KStudio", Context.MODE_PRIVATE).getLong("cloud_used_bytes", 0L)
+
+    private fun formatBytes(bytes: Long): String {
+        if (bytes <= 0L) return "0 GB"
+        val gb = bytes.toDouble() / 1024.0 / 1024.0 / 1024.0
+        return if (gb < 0.01) (bytes / 1024L / 1024L).toString() + " MB"
+        else String.format(Locale.JAPAN, "%.2f GB", gb)
+    }
+
+    private fun cloudUsageText(): String {
+        val quota = getCloudQuotaBytes()
+        val used = getCloudUsedBytes()
+        return if (quota <= 0L) "未接続（使用量 0 GB / 0 GB）"
+        else formatBytes(used) + " / " + formatBytes(quota) + " 使用"
+    }
+
+    private fun isCloudBackupEnabled(uri: Uri): Boolean =
+        getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+            .getBoolean("cloud_backup_" + uri.toString(), false)
+
+    private fun readRecentHistory(limit: Int): List<List<String>> =
+        getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+            .getString("history", "").orEmpty()
+            .split("")
+            .filter { it.isNotBlank() }
+            .map { it.split("") }
+            .filter { it.size >= 4 }
+            .take(limit)
+
+    private fun buildHistorySummaryCard(item: List<String>): View =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dpToPx(14), dpToPx(12), dpToPx(14), dpToPx(12))
+            background = roundedBackground(editorSurfaceColor(), 14)
+            addView(TextView(this@MainActivity).apply {
+                text = item[3].ifBlank { if (item[0] == "run") "Run" else "保存" }
+                textSize = 15f
+                setTextColor(primaryTextColor())
+                setTypeface(null, android.graphics.Typeface.BOLD)
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = "編集ファイル: " + currentFileName
+                textSize = 13f
+                setTextColor(secondaryTextColor())
+                setPadding(0, dpToPx(5), 0, 0)
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = "Run固有ナンバー: " + item[2] + " / " + item[1]
+                textSize = 12f
+                setTextColor(secondaryTextColor())
+                setPadding(0, dpToPx(4), 0, 0)
+            })
+        }
+
+    private fun readCommunityPosts(limit: Int): List<Pair<String, String>> {
+        val raw = getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+            .getString("community_posts", null) ?: return emptyList()
+        val out = ArrayList<Pair<String, String>>()
+        runCatching {
+            val array = org.json.JSONArray(raw)
+            for (i in 0 until minOf(array.length(), limit)) {
+                val obj = array.getJSONObject(i)
+                out.add(obj.optString("user") to obj.optString("text"))
+            }
+        }
+        return out
+    }
+
+    private fun openCollaboration(uri: Uri) {
+        startActivity(
+            Intent(this, CollaborationActivity::class.java)
+                .putExtra("project_uri", uri.toString())
+                .putExtra("project_name", getProjectDisplayName(uri))
+        )
+    }
     private fun openHomeFolder(uri: Uri) {
 
         currentFolderStack.add(
@@ -4358,7 +4616,6 @@ class MainActivity : Activity() {
     private fun swapEditorAndPreview() {
         if (
             fullscreen ||
-            swapAnimating ||
             projectTab.visibility == View.VISIBLE ||
             fileTab.visibility == View.VISIBLE ||
             historyTab.visibility == View.VISIBLE
@@ -4366,27 +4623,8 @@ class MainActivity : Activity() {
             return
         }
 
-        val parent = editorContainer.parent as? LinearLayout ?: return
-        val newSwapped = !editorPreviewSwapped
-
-        editorPreviewSwapped = newSwapped
+        editorPreviewSwapped = !editorPreviewSwapped
         applyEditorPreviewOrder()
-        return
-
-        val delta = (previewArea.top - editorContainer.top).toFloat()
-        if (kotlin.math.abs(delta) < dpToPx(40)) {
-            editorPreviewSwapped = newSwapped
-            applyEditorPreviewOrder()
-            return
-        }
-
-        swapAnimating = true
-        editorPreviewSwapped = newSwapped
-
-        editorContainer.translationY = 0f
-        previewArea.translationY = 0f
-        applyEditorPreviewOrder()
-        swapAnimating = false
     }
 
     private fun applyEditorPreviewOrder() {
@@ -4423,11 +4661,9 @@ class MainActivity : Activity() {
     // Projects Tab
 
     private fun showProjects() {
+        if (fullscreen) togglePreviewFullscreen()
 
-        if (fullscreen) {
-            togglePreviewFullscreen()
-        }
-
+        homeTab.visibility = View.GONE
         projectTab.visibility = View.VISIBLE
         fileTab.visibility = View.GONE
         historyTab.visibility = View.GONE
@@ -4437,104 +4673,29 @@ class MainActivity : Activity() {
         searchBar.visibility = View.GONE
         projectBar.visibility = View.GONE
 
+        configurePageHeader("プロジェクト", false)
+        findViewById<Button>(R.id.menuButton).setOnClickListener { handleBackNavigation() }
+
         projectList.removeAllViews()
-
         if (recentFolders.isEmpty()) {
-
-            val empty =
-                TextView(this).apply {
-                    text =
-                        "まだプロジェクトがありません。\n\n" +
-                        "フォルダを開くと、ここに最近のプロジェクトが表示されます。"
-                    textSize = 16f
-                    setTextColor(primaryTextColor())
-                    setPadding(
-                        dpToPx(8),
-                        dpToPx(24),
-                        dpToPx(8),
-                        dpToPx(24)
-                    )
-                }
-
-            projectList.addView(empty)
+            projectList.addView(TextView(this).apply {
+                text = "まだプロジェクトがありません。"
+                textSize = 16f
+                setTextColor(secondaryTextColor())
+                setPadding(dpToPx(8), dpToPx(28), 0, dpToPx(28))
+            })
             return
         }
 
         recentFolders.forEach { uri ->
-
-            val card =
-                LinearLayout(this).apply {
-                    orientation = LinearLayout.VERTICAL
-                    setPadding(
-                        dpToPx(14),
-                        dpToPx(14),
-                        dpToPx(14),
-                        dpToPx(14)
-                    )
-                    setBackgroundColor(surfaceColor())
-                    isClickable = true
-                    isFocusable = true
-                }
-
-            val name =
-                TextView(this).apply {
-                    text =
-                        getFolderName(uri).ifBlank {
-                            "選択したフォルダ"
-                        }
-                    textSize = 18f
-                    setTextColor(primaryTextColor())
-                }
-
-            val updated =
-                TextView(this).apply {
-                    text =
-                        "最終更新日時: " +
-                        getFolderLastModified(uri)
-                    textSize = 13f
-                    setTextColor(secondaryTextColor())
-                    setPadding(
-                        0,
-                        dpToPx(5),
-                        0,
-                        0
-                    )
-                }
-
-            val divider =
-                TextView(this).apply {
-                    text =
-                        "────────────────────────"
-                    textSize = 12f
-                    setTextColor(secondaryTextColor())
-                    setPadding(
-                        0,
-                        dpToPx(8),
-                        0,
-                        0
-                    )
-                }
-
-            card.addView(name)
-            card.addView(updated)
-            card.addView(divider)
-
-            card.setOnClickListener {
-                openRecentProject(uri)
-            }
-
             projectList.addView(
-                card,
-                LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply {
-                    bottomMargin = dpToPx(6)
+                buildProjectCard(uri, false),
+                LinearLayout.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+                    bottomMargin = dpToPx(14)
                 }
             )
         }
     }
-
     private fun openRecentProject(uri: Uri) {
 
         folderRootUri = uri
@@ -5192,9 +5353,6 @@ class MainActivity : Activity() {
         if (!preferences.contains("theme_mode")) {
             preferences.edit().putString("theme_mode", "system").apply()
         }
-        if (!preferences.contains("menu_animation")) {
-            preferences.edit().putBoolean("menu_animation", true).apply()
-        }
         if (!preferences.contains("history_enabled")) {
             preferences.edit().putBoolean("history_enabled", true).apply()
         }
@@ -5245,10 +5403,6 @@ class MainActivity : Activity() {
     private fun isSearchSuggestionsEnabled(): Boolean =
         getSharedPreferences("KStudio", Context.MODE_PRIVATE)
             .getBoolean("search_suggestions", true)
-
-    private fun isMenuAnimationEnabled(): Boolean =
-        getSharedPreferences("KStudio", Context.MODE_PRIVATE)
-            .getBoolean("menu_animation", true)
 
     private fun isHistoryEnabled(): Boolean =
         getSharedPreferences("KStudio", Context.MODE_PRIVATE)
@@ -5317,19 +5471,15 @@ class MainActivity : Activity() {
 
     private fun styleKStudioButton(button: Button) {
         button.setAllCaps(false)
-        val accent = when (button.text.toString()) {
-            "Run" -> Color.rgb(0, 128, 255)
-            "保存" -> Color.rgb(0, 170, 120)
-            "↶" -> Color.rgb(125, 95, 220)
-            "↷" -> Color.rgb(220, 145, 45)
-            else -> if (isDarkMode()) Color.rgb(48, 48, 52) else Color.rgb(236, 240, 244)
-        }
-        val accentText = if (button.text.toString() in listOf("Run", "保存")) Color.WHITE else primaryTextColor()
-        button.setTextColor(accentText)
+        val fill = if (isDarkMode()) Color.rgb(48, 48, 52) else Color.rgb(236, 238, 242)
+        button.setTextColor(primaryTextColor())
         button.background = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
-            setColor(accent)
-            setStroke(dpToPx(1), accent)
+            setColor(fill)
+            setStroke(
+                dpToPx(1),
+                if (isDarkMode()) Color.rgb(78, 78, 84) else Color.rgb(214, 216, 220)
+            )
             cornerRadius = dpToPx(10).toFloat()
         }
         button.minHeight = dpToPx(44)
@@ -5337,7 +5487,6 @@ class MainActivity : Activity() {
         button.includeFontPadding = true
         button.setPadding(dpToPx(12), 0, dpToPx(12), 0)
     }
-
     private fun styleButtonsInView(view: View) {
         if (view is Button) styleKStudioButton(view)
         if (view is ViewGroup) {
@@ -5360,106 +5509,71 @@ class MainActivity : Activity() {
         message: String,
         onConfirm: () -> Unit
     ) {
+        showKStudioConfirm(titleText, message, "削除", onConfirm)
+    }
+
+    private fun showKStudioConfirm(
+        titleText: String,
+        message: String,
+        confirmText: String,
+        onConfirm: () -> Unit
+    ) {
         val root = FrameLayout(this)
-        val scrim = View(this).apply {
-            setBackgroundColor(Color.argb(110, 0, 0, 0))
-        }
-        root.addView(
-            scrim,
-            FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-        )
+        val scrim = View(this).apply { setBackgroundColor(Color.argb(110, 0, 0, 0)) }
+        root.addView(scrim, FrameLayout.LayoutParams(-1, -1))
 
         val panel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(
-                dpToPx(20),
-                dpToPx(18),
-                dpToPx(20),
-                dpToPx(18)
-            )
+            setPadding(dpToPx(20), dpToPx(18), dpToPx(20), dpToPx(18))
             background = roundedBackground(surfaceColor(), 16)
         }
-        panel.addView(
-            TextView(this).apply {
-                text = titleText
-                textSize = 21f
-                setTextColor(primaryTextColor())
-                setTypeface(null, android.graphics.Typeface.BOLD)
-            }
-        )
-        panel.addView(
-            TextView(this).apply {
-                text = message
-                textSize = 15f
-                setTextColor(primaryTextColor())
-                setPadding(0, dpToPx(14), 0, dpToPx(18))
-            }
-        )
+        panel.addView(TextView(this).apply {
+            text = titleText
+            textSize = 21f
+            setTextColor(primaryTextColor())
+            setTypeface(null, android.graphics.Typeface.BOLD)
+        })
+        panel.addView(TextView(this).apply {
+            text = message
+            textSize = 15f
+            setTextColor(primaryTextColor())
+            setPadding(0, dpToPx(14), 0, dpToPx(18))
+        })
 
-        val buttons = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-        }
-        val cancel = Button(this).apply {
-            text = "キャンセル"
-            styleKStudioButton(this)
-        }
-        val confirm = Button(this).apply {
-            text = "削除"
-            styleKStudioButton(this)
-        }
-        buttons.addView(
-            cancel,
-            LinearLayout.LayoutParams(0, dpToPx(46), 1f)
-        )
-        buttons.addView(
-            confirm,
-            LinearLayout.LayoutParams(0, dpToPx(46), 1f).apply {
-                marginStart = dpToPx(6)
-            }
-        )
+        val buttons = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val cancel = Button(this).apply { text = "キャンセル"; styleKStudioButton(this) }
+        val confirm = Button(this).apply { text = confirmText; styleKStudioButton(this) }
+        buttons.addView(cancel, LinearLayout.LayoutParams(0, dpToPx(46), 1f))
+        buttons.addView(confirm, LinearLayout.LayoutParams(0, dpToPx(46), 1f).apply {
+            marginStart = dpToPx(12)
+        })
         panel.addView(buttons)
 
-        root.addView(
-            panel,
-            FrameLayout.LayoutParams(
-                minOf(
-                    dpToPx(380),
-                    resources.displayMetrics.widthPixels - dpToPx(32)
-                ),
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                Gravity.CENTER
-            )
-        )
+        root.addView(panel, FrameLayout.LayoutParams(
+            minOf(dpToPx(380), resources.displayMetrics.widthPixels - dpToPx(32)),
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            Gravity.CENTER
+        ))
 
         lateinit var popup: PopupWindow
-        popup = PopupWindow(
-            root,
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            ViewGroup.LayoutParams.MATCH_PARENT,
-            true
-        ).apply {
+        popup = PopupWindow(root, -1, -1, true).apply {
             isOutsideTouchable = true
-            setBackgroundDrawable(
-                android.graphics.drawable.ColorDrawable(Color.TRANSPARENT)
-            )
+            setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
         }
-
-        cancel.setOnClickListener { popup.dismiss() }
-        scrim.setOnClickListener { popup.dismiss() }
+        cancel.setOnClickListener {
+            popup.dismiss()
+            backWarningShowing = false
+        }
+        scrim.setOnClickListener {
+            popup.dismiss()
+            backWarningShowing = false
+        }
         confirm.setOnClickListener {
             popup.dismiss()
             onConfirm()
         }
-
         popup.showAtLocation(topMenuBar, Gravity.CENTER, 0, 0)
-        panel.alpha = 1f
-        panel.scaleX = 1f
-        panel.scaleY = 1f
     }
-
     private fun historySerial(): String {
         val chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
         val random = java.util.Random()
