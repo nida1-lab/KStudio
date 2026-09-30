@@ -692,7 +692,14 @@ class MainActivity : Activity() {
                     showHomeTab()
                 }
             }
-            "PROJECTS", "FILES", "HISTORY" -> showHomeTab()
+            "PROJECTS", "HISTORY" -> showHomeTab()
+            "FILES" -> {
+                when {
+                    fileCreatePanel.visibility == View.VISIBLE -> showFileBrowserTab()
+                    currentFolderStack.isNotEmpty() -> navigateFileManagerUp()
+                    else -> showHomeTab()
+                }
+            }
             "HOME" -> finish()
             else -> finish()
         }
