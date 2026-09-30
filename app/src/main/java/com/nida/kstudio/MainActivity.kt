@@ -1608,18 +1608,6 @@ class MainActivity : Activity() {
             recreate()
         }
 
-        addSettingRow(
-            "サイドメニューアニメーション",
-            "左から滑らかに出入りするアニメーション",
-            { if (isMenuAnimationEnabled()) "ON" else "OFF" }
-        ) {
-            val enabled = !isMenuAnimationEnabled()
-            getSharedPreferences("KStudio", Context.MODE_PRIVATE)
-                .edit()
-                .putBoolean("menu_animation", enabled)
-                .apply()
-        }
-
         addSection("履歴")
 
         addSettingRow(
