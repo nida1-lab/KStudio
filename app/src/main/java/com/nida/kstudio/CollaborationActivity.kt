@@ -182,6 +182,12 @@ class CollaborationActivity : Activity() {
             val owner = currentAccount.ifBlank { "未設定" }
             members.add(Member(owner, "所有者"))
             saveMembers()
+        } else if (
+            currentAccount.isNotBlank() &&
+            members.any { it.name == "未設定" && it.role == "所有者" }
+        ) {
+            members.first { it.name == "未設定" && it.role == "所有者" }.name = currentAccount
+            saveMembers()
         }
 
         if (currentAccount.isNotBlank() && members.none { it.name.equals(currentAccount, true) }) {
@@ -219,7 +225,8 @@ class CollaborationActivity : Activity() {
 
     private fun canDelete(member: Member): Boolean {
         if (!canManageMembers()) return false
-        return !member.role.equals("所有者") || member.name.equals(currentAccount, true).not()
+        return member.role != "所有者" &&
+            !member.name.equals(currentAccount, true)
     }
 
     private fun render() {
@@ -304,8 +311,8 @@ class CollaborationActivity : Activity() {
     private fun changeRole(index: Int) {
         if (!canManageMembers()) return
         val member = members.getOrNull(index) ?: return
-        if (member.name.equals(currentAccount, true) && member.role == "所有者") {
-            showMessage("権限変更", "所有者自身の権限はここでは変更しません。")
+        if (member.role == "所有者") {
+            showMessage("権限変更", "所有者の権限は変更できません。")
             return
         }
 
