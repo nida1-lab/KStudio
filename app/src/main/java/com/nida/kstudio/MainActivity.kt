@@ -1256,7 +1256,7 @@ class MainActivity : Activity() {
         addItem("プロジェクト一覧", { showProjects() })
         addItem("ファイル管理", { showFileManager() })
         addItem("設定", { showSettingsDialog() })
-        addItem("クラウド  [実装中]", { showKStudioMessage("クラウド", "クラウド機能は実装中です。") })
+        addItem("コミュニティ", { startActivity(Intent(this, CommunityActivity::class.java)) })
         addItem("アカウント", { showAccountDialog() })
 
         val close = Button(this).apply {
@@ -1313,7 +1313,7 @@ class MainActivity : Activity() {
                         "プロジェクト一覧" -> showProjects()
                         "ファイル管理" -> showFileManager()
                         "設定" -> showSettingsDialog()
-                        "クラウド  [実装中]" -> showKStudioMessage("クラウド", "クラウド機能は実装中です。")
+                        "コミュニティ" -> startActivity(Intent(this, CommunityActivity::class.java))
                         "アカウント" -> showAccountDialog()
                     }
                     dismissDrawer()
