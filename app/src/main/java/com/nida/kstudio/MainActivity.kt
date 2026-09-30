@@ -663,7 +663,9 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
-        releaseFileLock(currentFileUri)
+        if (!isChangingConfigurations) {
+            releaseFileLock(currentFileUri)
+        }
         lockHandler.removeCallbacks(lockHeartbeat)
         super.onDestroy()
     }
@@ -3955,6 +3957,8 @@ class MainActivity : Activity() {
                     account + "|" + System.currentTimeMillis()
                 )
                 .apply()
+            lockHandler.removeCallbacks(lockHeartbeat)
+            lockHandler.postDelayed(lockHeartbeat, 30_000L)
         }
     }
 
