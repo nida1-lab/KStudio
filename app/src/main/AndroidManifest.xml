@@ -10,6 +10,10 @@
         android:supportsRtl="true">
 
         <activity
+            android:name=".CommunityActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".MainActivity"
             android:exported="true">
 
