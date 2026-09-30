@@ -292,6 +292,7 @@ class MainActivity : Activity() {
 
                     if (!historyApplying) {
                         isDirty = true
+                        currentFileUri?.let { acquireFileLock(it) }
                         updateEditorHeader()
                     }
 
@@ -665,10 +666,12 @@ class MainActivity : Activity() {
                         "離れる"
                     ) {
                         backWarningShowing = false
+                        releaseFileLock(currentFileUri)
                         isDirty = false
                         showHomeTab()
                     }
                 } else {
+                    releaseFileLock(currentFileUri)
                     showHomeTab()
                 }
             }
@@ -2897,10 +2900,28 @@ class MainActivity : Activity() {
         uri: Uri,
         name: String
     ) {
+        val lockOwner = getFileLockOwner(uri)
+        val account = getAccountName()
+
+        if (!lockOwner.isNullOrBlank() &&
+            !lockOwner.equals(account, ignoreCase = true)
+        ) {
+            showKStudioMessage(
+                "ファイルは編集中です",
+                name + " は @" + lockOwner + " が編集中です。\n閲覧用の同時オープンは次の段階で対応します。"
+            )
+            return
+        }
 
         confirmUnsavedChanges {
-
             try {
+                if (account.isBlank()) {
+                    showKStudioMessage(
+                        "アカウント名が必要です",
+                        "共同コーディング用の編集ロックにはアカウント名が必要です。\nHOME右上のアカウントから設定してください。"
+                    )
+                    return@confirmUnsavedChanges
+                }
 
                 val text =
                     contentResolver
@@ -2910,11 +2931,14 @@ class MainActivity : Activity() {
                         ?: ""
 
                 if (text.length > 2_000_000) {
-
                     showKStudioNotice("大きすぎるファイルです")
-
                     return@confirmUnsavedChanges
                 }
+
+                if (currentFileUri != null && currentFileUri != uri) {
+                    releaseFileLock(currentFileUri)
+                }
+                acquireFileLock(uri)
 
                 historyApplying = true
                 codeEditor.setText(text)
@@ -2934,61 +2958,52 @@ class MainActivity : Activity() {
                 showEditorScreen()
 
                 showKStudioNotice("開きました: " + name)
-
             } catch (e: Exception) {
-
                 historyApplying = false
-
-                showKStudioNotice("ファイルを開けませんでした: " +
-                        (e.message ?: "unknown"))
+                releaseFileLock(uri)
+                showKStudioNotice("ファイルを開けませんでした: " + (e.message ?: "unknown"))
             }
         }
     }
-
     private fun saveCurrentFile(
         onComplete: (() -> Unit)? = null
     ) {
-
         val uri = currentFileUri
-
         if (uri == null) {
-
             showKStudioNotice("保存先ファイルがありません")
-
             onComplete?.invoke()
             return
         }
 
-        try {
+        val lockOwner = getFileLockOwner(uri)
+        val account = getAccountName()
+        if (!lockOwner.isNullOrBlank() &&
+            !lockOwner.equals(account, ignoreCase = true)
+        ) {
+            showKStudioMessage("保存できません", "@" + lockOwner + " がこのファイルを編集中です。")
+            return
+        }
 
+        try {
             contentResolver
                 .openOutputStream(uri, "wt")
                 ?.use { stream ->
-
                     stream.write(
-                        codeEditor.text
-                            .toString()
-                            .toByteArray(Charsets.UTF_8)
+                        codeEditor.text.toString().toByteArray(Charsets.UTF_8)
                     )
                 }
-                ?: throw IllegalStateException(
-                    "保存先を開けません"
-                )
+                ?: throw IllegalStateException("保存先を開けません")
 
             isDirty = false
+            acquireFileLock(uri)
             updateEditorHeader()
 
             showKStudioNotice("保存しました")
-
             onComplete?.invoke()
-
         } catch (e: Exception) {
-
-            showKStudioNotice("保存に失敗しました: " +
-                    (e.message ?: "unknown"))
+            showKStudioNotice("保存に失敗しました: " + (e.message ?: "unknown"))
         }
     }
-
     private fun askCreateFile(
         folderUri: Uri
     ) {
@@ -3883,6 +3898,68 @@ class MainActivity : Activity() {
         )
     }
 
+
+    private fun fileLockKey(uri: Uri): String =
+        "file_lock_" + uri.toString()
+
+    private fun getFileLockOwner(uri: Uri): String? {
+        val raw = getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+            .getString(fileLockKey(uri), null)
+            ?: return null
+
+        val parts = raw.split("|", limit = 2)
+        if (parts.size != 2) {
+            getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+                .edit()
+                .remove(fileLockKey(uri))
+                .apply()
+            return null
+        }
+
+        val owner = parts[0].trim()
+        val timestamp = parts[1].toLongOrNull() ?: 0L
+        if (owner.isBlank() ||
+            System.currentTimeMillis() - timestamp > 120_000L
+        ) {
+            getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+                .edit()
+                .remove(fileLockKey(uri))
+                .apply()
+            return null
+        }
+
+        return owner
+    }
+
+    private fun acquireFileLock(uri: Uri) {
+        val account = getAccountName()
+        if (account.isBlank()) return
+
+        val owner = getFileLockOwner(uri)
+        if (owner == null || owner.equals(account, ignoreCase = true)) {
+            getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+                .edit()
+                .putString(
+                    fileLockKey(uri),
+                    account + "|" + System.currentTimeMillis()
+                )
+                .apply()
+        }
+    }
+
+    private fun releaseFileLock(uri: Uri?) {
+        if (uri == null) return
+        val account = getAccountName()
+        if (account.isBlank()) return
+
+        val owner = getFileLockOwner(uri)
+        if (owner != null && owner.equals(account, ignoreCase = true)) {
+            getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+                .edit()
+                .remove(fileLockKey(uri))
+                .apply()
+        }
+    }
     private fun updateEditorHeader() {
 
         if (!::codeEditor.isInitialized) {
