@@ -94,6 +94,7 @@ class MainActivity : Activity() {
     private var imagePathPopup: PopupWindow? = null
     private var searchSuggestionsPopup: PopupWindow? = null
     private lateinit var fileCreateHiddenButton: Button
+    private var fileCreateHidden = false
 
     private data class ManagedEntry(
         val uri: Uri,
