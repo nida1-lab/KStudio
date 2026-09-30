@@ -116,6 +116,15 @@ class MainActivity : Activity() {
     private var projectName = "App"
     private var currentScreen = "HOME"
     private var backWarningShowing = false
+    private val lockHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val lockHeartbeat = object : Runnable {
+        override fun run() {
+            currentFileUri?.let { acquireFileLock(it) }
+            if (currentScreen == "EDITOR") {
+                lockHandler.postDelayed(this, 30_000L)
+            }
+        }
+    }
 
     private var folderRootUri: Uri? = null
     private var currentFolderUri: Uri? = null
@@ -651,6 +660,12 @@ class MainActivity : Activity() {
         } else {
             super.onBackPressed()
         }
+    }
+
+    override fun onDestroy() {
+        releaseFileLock(currentFileUri)
+        lockHandler.removeCallbacks(lockHeartbeat)
+        super.onDestroy()
     }
 
     private fun handleBackNavigation() {
@@ -2908,21 +2923,13 @@ class MainActivity : Activity() {
         ) {
             showKStudioMessage(
                 "ファイルは編集中です",
-                name + " は @" + lockOwner + " が編集中です。\n閲覧用の同時オープンは次の段階で対応します。"
+                name + " は @" + lockOwner + " が編集中です。\n同時編集はできません。"
             )
             return
         }
 
         confirmUnsavedChanges {
             try {
-                if (account.isBlank()) {
-                    showKStudioMessage(
-                        "アカウント名が必要です",
-                        "共同コーディング用の編集ロックにはアカウント名が必要です。\nHOME右上のアカウントから設定してください。"
-                    )
-                    return@confirmUnsavedChanges
-                }
-
                 val text =
                     contentResolver
                         .openInputStream(uri)
@@ -2938,6 +2945,11 @@ class MainActivity : Activity() {
                 if (currentFileUri != null && currentFileUri != uri) {
                     releaseFileLock(currentFileUri)
                 }
+
+                currentFileUri = uri
+                currentFileName = name
+                isDirty = false
+
                 acquireFileLock(uri)
 
                 historyApplying = true
@@ -2946,10 +2958,6 @@ class MainActivity : Activity() {
 
                 undoStack.clear()
                 redoStack.clear()
-
-                currentFileUri = uri
-                currentFileName = name
-                isDirty = false
 
                 updateEditorHeader()
                 updateHistoryButtons()
@@ -2961,7 +2969,10 @@ class MainActivity : Activity() {
             } catch (e: Exception) {
                 historyApplying = false
                 releaseFileLock(uri)
-                showKStudioNotice("ファイルを開けませんでした: " + (e.message ?: "unknown"))
+                showKStudioNotice(
+                    "ファイルを開けませんでした: " +
+                        (e.message ?: "unknown")
+                )
             }
         }
     }
@@ -3958,6 +3969,9 @@ class MainActivity : Activity() {
                 .edit()
                 .remove(fileLockKey(uri))
                 .apply()
+        }
+        if (currentFileUri == uri) {
+            lockHandler.removeCallbacks(lockHeartbeat)
         }
     }
     private fun updateEditorHeader() {
