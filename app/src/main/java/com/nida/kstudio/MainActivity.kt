@@ -935,54 +935,34 @@ class MainActivity : Activity() {
     }
 
     private fun showFileSearchDialog() {
-        val input = EditText(this)
-        input.hint = "File name"
-        input.setSingleLine(true)
+        showKStudioInputDialog(
+            "ファイル検索",
+            "ファイル名の一部を入力してください。",
+            "ファイル名",
+            "",
+            "検索"
+        ) { keywordRaw ->
+            val keyword = keywordRaw.trim()
+            if (keyword.isEmpty()) return@showKStudioInputDialog
 
-        android.app.AlertDialog.Builder(this)
-            .setTitle("Search file")
-            .setView(input)
-            .setNegativeButton("Cancel", null)
-            .setPositiveButton("Search") { _, _ ->
-                val keyword = input.text.toString().trim()
-                if (keyword.isEmpty()) return@setPositiveButton
-
-                val root = folderRootUri ?: return@setPositiveButton
-                val results = ArrayList<ManagedEntry>()
-
-                for (entry in queryFolder(root)) {
-                    if (!entry.isDirectory &&
-                        entry.name.contains(keyword, true)
-                    ) {
-                        results.add(entry)
-                    }
-                }
-
-                if (results.isEmpty()) {
-                    Toast.makeText(
-                        this,
-                        "No files found",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                    return@setPositiveButton
-                }
-
-                val labels = ArrayList<String>()
-                for (entry in results) {
-                    labels.add("File: " + entry.name)
-                }
-
-                android.app.AlertDialog.Builder(this)
-                    .setTitle("Search results")
-                    .setItems(labels.toTypedArray()) { _, which ->
-                        val entry = results[which]
-                        openManagedFile(entry.uri, entry.name)
-                    }
-                    .show()
+            val root = folderRootUri ?: return@showKStudioInputDialog
+            val results = queryFolder(root).filter {
+                !it.isDirectory && it.name.contains(keyword, true)
             }
-            .show()
-    }
+            if (results.isEmpty()) {
+                showKStudioMessage("検索結果", "該当するファイルがありません。")
+                return@showKStudioInputDialog
+            }
 
+            showKStudioChoiceDialog(
+                "検索結果",
+                results.map { it.name }
+            ) { which ->
+                val entry = results.getOrNull(which) ?: return@showKStudioChoiceDialog
+                openManagedFile(entry.uri, entry.name)
+            }
+        }
+    }
     private fun showSaveCommitPanel() {
         if (currentFileUri == null) {
             Toast.makeText(this, "No file to save", Toast.LENGTH_SHORT).show()
@@ -1660,6 +1640,210 @@ class MainActivity : Activity() {
         scrim.alpha = 1f
     }
 
+    private fun showKStudioChoiceDialog(
+        titleText: String,
+        options: List<String>,
+        onChoice: (Int) -> Unit
+    ) {
+        val root = FrameLayout(this)
+        val scrim = View(this).apply { setBackgroundColor(Color.argb(110, 0, 0, 0)) }
+        root.addView(scrim, FrameLayout.LayoutParams(-1, -1))
+
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dpToPx(18), dpToPx(18), dpToPx(18), dpToPx(18))
+            background = roundedBackground(surfaceColor(), 16)
+        }
+        panel.addView(TextView(this).apply {
+            text = titleText
+            textSize = 20f
+            setTextColor(primaryTextColor())
+            setTypeface(null, android.graphics.Typeface.BOLD)
+        })
+        options.forEachIndexed { index, option ->
+            panel.addView(
+                Button(this).apply {
+                    text = option
+                    textSize = 14f
+                    gravity = Gravity.START or Gravity.CENTER_VERTICAL
+                    styleKStudioButton(this)
+                    setOnClickListener {
+                        popup.dismiss()
+                        onChoice(index)
+                    }
+                },
+                LinearLayout.LayoutParams(-1, dpToPx(46)).apply {
+                    topMargin = if (index == 0) dpToPx(12) else dpToPx(10)
+                }
+            )
+        }
+
+        root.addView(
+            panel,
+            FrameLayout.LayoutParams(
+                minOf(dpToPx(390), resources.displayMetrics.widthPixels - dpToPx(32)),
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.CENTER
+            )
+        )
+
+        lateinit var popup: PopupWindow
+        popup = PopupWindow(root, -1, -1, true).apply {
+            isOutsideTouchable = true
+            setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        }
+        scrim.setOnClickListener { popup.dismiss() }
+        popup.showAtLocation(topMenuBar, Gravity.CENTER, 0, 0)
+    }
+
+    private fun showKStudioInputDialog(
+        titleText: String,
+        message: String?,
+        hint: String,
+        initial: String,
+        confirmText: String,
+        onConfirm: (String) -> Unit
+    ) {
+        val root = FrameLayout(this)
+        val scrim = View(this).apply { setBackgroundColor(Color.argb(110, 0, 0, 0)) }
+        root.addView(scrim, FrameLayout.LayoutParams(-1, -1))
+
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dpToPx(20), dpToPx(18), dpToPx(20), dpToPx(18))
+            background = roundedBackground(surfaceColor(), 16)
+        }
+        panel.addView(TextView(this).apply {
+            text = titleText
+            textSize = 21f
+            setTextColor(primaryTextColor())
+            setTypeface(null, android.graphics.Typeface.BOLD)
+        })
+        if (!message.isNullOrBlank()) {
+            panel.addView(TextView(this).apply {
+                text = message
+                textSize = 13f
+                setTextColor(secondaryTextColor())
+                setPadding(0, dpToPx(8), 0, dpToPx(12))
+            })
+        }
+
+        val input = EditText(this).apply {
+            this.hint = hint
+            setSingleLine(true)
+            setText(initial)
+            selectAll()
+            setTextColor(primaryTextColor())
+            setHintTextColor(secondaryTextColor())
+            setPadding(dpToPx(12), dpToPx(10), dpToPx(12), dpToPx(10))
+            background = roundedBackground(editorSurfaceColor(), 10)
+        }
+        panel.addView(input, LinearLayout.LayoutParams(-1, dpToPx(52)))
+
+        val buttons = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val cancel = Button(this).apply { text = "キャンセル"; styleKStudioButton(this) }
+        val confirm = Button(this).apply { text = confirmText; styleKStudioButton(this) }
+        buttons.addView(cancel, LinearLayout.LayoutParams(0, dpToPx(46), 1f))
+        buttons.addView(confirm, LinearLayout.LayoutParams(0, dpToPx(46), 1f).apply {
+            marginStart = dpToPx(12)
+        })
+        panel.addView(buttons, LinearLayout.LayoutParams(-1, dpToPx(58)).apply {
+            topMargin = dpToPx(12)
+        })
+
+        root.addView(
+            panel,
+            FrameLayout.LayoutParams(
+                minOf(dpToPx(390), resources.displayMetrics.widthPixels - dpToPx(32)),
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.CENTER
+            )
+        )
+
+        lateinit var popup: PopupWindow
+        popup = PopupWindow(root, -1, -1, true).apply {
+            isOutsideTouchable = true
+            setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        }
+        cancel.setOnClickListener { popup.dismiss() }
+        scrim.setOnClickListener { popup.dismiss() }
+        confirm.setOnClickListener {
+            val value = input.text.toString()
+            popup.dismiss()
+            onConfirm(value)
+        }
+        popup.showAtLocation(topMenuBar, Gravity.CENTER, 0, 0)
+        input.requestFocus()
+    }
+
+    private fun showKStudioThreeChoice(
+        titleText: String,
+        message: String,
+        firstText: String,
+        secondText: String,
+        thirdText: String,
+        firstAction: () -> Unit,
+        secondAction: () -> Unit
+    ) {
+        val root = FrameLayout(this)
+        val scrim = View(this).apply { setBackgroundColor(Color.argb(110, 0, 0, 0)) }
+        root.addView(scrim, FrameLayout.LayoutParams(-1, -1))
+
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dpToPx(20), dpToPx(18), dpToPx(20), dpToPx(18))
+            background = roundedBackground(surfaceColor(), 16)
+        }
+        panel.addView(TextView(this).apply {
+            text = titleText
+            textSize = 21f
+            setTextColor(primaryTextColor())
+            setTypeface(null, android.graphics.Typeface.BOLD)
+        })
+        panel.addView(TextView(this).apply {
+            text = message
+            textSize = 14f
+            setTextColor(primaryTextColor())
+            setPadding(0, dpToPx(12), 0, dpToPx(16))
+        })
+
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        fun addAction(textValue: String, action: (() -> Unit)?) {
+            val button = Button(this).apply {
+                text = textValue
+                textSize = 13f
+                styleKStudioButton(this)
+                setOnClickListener {
+                    popup.dismiss()
+                    action?.invoke()
+                }
+            }
+            row.addView(button, LinearLayout.LayoutParams(0, dpToPx(46), 1f).apply {
+                marginStart = if (row.childCount == 0) 0 else dpToPx(10)
+            })
+        }
+        addAction(firstText, firstAction)
+        addAction(secondText, secondAction)
+        addAction(thirdText, null)
+        panel.addView(row)
+
+        root.addView(
+            panel,
+            FrameLayout.LayoutParams(
+                minOf(dpToPx(430), resources.displayMetrics.widthPixels - dpToPx(24)),
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.CENTER
+            )
+        )
+
+        lateinit var popup: PopupWindow
+        popup = PopupWindow(root, -1, -1, true).apply {
+            isOutsideTouchable = true
+            setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        }
+        scrim.setOnClickListener { popup.dismiss() }
+        popup.showAtLocation(topMenuBar, Gravity.CENTER, 0, 0)
+    }
     private fun showAccountDialog() {
         val root = FrameLayout(this)
         val scrim = View(this).apply { setBackgroundColor(Color.argb(110, 0, 0, 0)) }
@@ -1725,6 +1909,27 @@ class MainActivity : Activity() {
         }
         popup.showAtLocation(topMenuBar, Gravity.CENTER, 0, 0)
     }
+    private fun showKStudioNotice(message: String) {
+        val textView = TextView(this).apply {
+            text = message
+            textSize = 13f
+            setTextColor(Color.WHITE)
+            setPadding(dpToPx(16), dpToPx(10), dpToPx(16), dpToPx(10))
+            background = roundedBackground(Color.rgb(45, 45, 48), 12)
+        }
+        val popup = PopupWindow(
+            textView,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            false
+        ).apply {
+            isOutsideTouchable = false
+            setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        }
+        popup.showAtLocation(topMenuBar, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL, 0, dpToPx(24))
+        textView.postDelayed({ popup.dismiss() }, 1600L)
+    }
+
     private fun showKStudioMessage(titleText: String, message: String) {
         val root = FrameLayout(this)
         val scrim = View(this).apply {
@@ -1828,76 +2033,32 @@ class MainActivity : Activity() {
     }
 
     private fun askProjectName() {
-
-        val input =
-            EditText(this).apply {
-                hint = "プロジェクト名"
-                setSingleLine(true)
-                setText(
-                    getFolderName(folderRootUri ?: Uri.EMPTY)
-                        .ifBlank { "App" }
-                )
-                selectAll()
+        showKStudioInputDialog(
+            "プロジェクト名を設定",
+            "この名前はKStudioのHOMEに表示されます。実際のフォルダ名は変更しません。",
+            "プロジェクト名",
+            getFolderName(folderRootUri ?: Uri.EMPTY).ifBlank { "App" },
+            "開始"
+        ) { rawName ->
+            val name = rawName.trim()
+            if (name.isEmpty() || name.length > 80) {
+                showKStudioMessage("プロジェクト名", "1〜80文字で入力してください。")
+                return@showKStudioInputDialog
             }
 
-        android.app.AlertDialog.Builder(this)
-            .setTitle("プロジェクト名を設定")
-            .setMessage(
-                "この名前はKStudioのHOMEに表示されます。\n" +
-                "実際のフォルダ名は変更しません。"
-            )
-            .setView(input)
-            .setNegativeButton("キャンセル", null)
-            .setPositiveButton("開始") { _, _ ->
+            projectName = name
+            getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+                .edit()
+                .putString("projectName", projectName)
+                .apply()
 
-                val name =
-                    input.text.toString().trim()
-
-                if (name.isEmpty()) {
-                    Toast.makeText(
-                        this,
-                        "プロジェクト名を入力してください",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                    return@setPositiveButton
-                }
-
-                if (name.length > 80) {
-                    Toast.makeText(
-                        this,
-                        "プロジェクト名が長すぎます",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                    return@setPositiveButton
-                }
-
-                projectName = name
-
-                getSharedPreferences(
-                    "KStudio",
-                    Context.MODE_PRIVATE
-                )
-                    .edit()
-                    .putString(
-                        "projectName",
-                        projectName
-                    )
-                    .apply()
-
-                createInitialProjectFile {
-                    renderHomeFiles()
-                    showEditorScreen()
-
-                    Toast.makeText(
-                        this,
-                        "「$name」を開始しました",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
+            createInitialProjectFile {
+                renderHomeFiles()
+                showEditorScreen()
+                showKStudioMessage("プロジェクト", "「" + name + "」を開始しました。")
             }
-            .show()
+        }
     }
-
     private fun createInitialProjectFile(
         onReady: () -> Unit
     ) {
@@ -2900,97 +3061,43 @@ class MainActivity : Activity() {
         folderUri: Uri,
         onCreated: (() -> Unit)? = null
     ) {
-
-        val input =
-            EditText(this).apply {
-                hint = "フォルダ名"
-                setSingleLine(true)
-                setText("NewFolder")
-                selectAll()
+        showKStudioInputDialog(
+            "新しいフォルダ",
+            null,
+            "フォルダ名",
+            "NewFolder",
+            "作成"
+        ) { rawName ->
+            val name = rawName.trim()
+            val validation = validatePathSegment(name, "フォルダ名")
+            if (validation != null) {
+                showKStudioMessage("フォルダ作成", validation)
+                return@showKStudioInputDialog
             }
 
-        android.app.AlertDialog.Builder(this)
-            .setTitle("新しいフォルダ")
-            .setView(input)
-            .setNegativeButton(
-                "キャンセル",
-                null
-            )
-            .setPositiveButton(
-                "作成"
-            ) { _, _ ->
-
-                val name =
-                    input.text
-                        .toString()
-                        .trim()
-
-                val validation =
-                    validatePathSegment(
-                        name,
-                        "フォルダ名"
-                    )
-
-                if (validation != null) {
-                    Toast.makeText(
-                        this,
-                        validation,
-                        Toast.LENGTH_SHORT
-                    ).show()
-                    return@setPositiveButton
+            try {
+                if (findChildByName(folderUri, name) != null) {
+                    showKStudioMessage("フォルダ作成", "同名のファイルまたはフォルダがあります。")
+                    return@showKStudioInputDialog
                 }
 
-                try {
+                DocumentsContract.createDocument(
+                    contentResolver,
+                    folderUri,
+                    DocumentsContract.Document.MIME_TYPE_DIR,
+                    name
+                ) ?: throw IllegalStateException("フォルダ作成に失敗しました")
 
-                    if (
-                        findChildByName(
-                            folderUri,
-                            name
-                        ) != null
-                    ) {
-                        Toast.makeText(
-                            this,
-                            "同名のファイルまたはフォルダがあります",
-                            Toast.LENGTH_SHORT
-                        ).show()
-                        return@setPositiveButton
-                    }
-
-                    DocumentsContract.createDocument(
-                        contentResolver,
-                        folderUri,
-                        DocumentsContract.Document.MIME_TYPE_DIR,
-                        name
-                    )
-                        ?: throw IllegalStateException(
-                            "フォルダ作成に失敗しました"
-                        )
-
-                    Toast.makeText(
-                        this,
-                        "フォルダを作成しました: " + name,
-                        Toast.LENGTH_SHORT
-                    ).show()
-
-                    onCreated?.invoke()
-
-                } catch (e: Exception) {
-
-                    Toast.makeText(
-                        this,
-                        "フォルダ作成に失敗しました: " +
-                            (e.message ?: "unknown"),
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
+                onCreated?.invoke()
+                showKStudioMessage("フォルダ作成", "「" + name + "」を作成しました。")
+            } catch (e: Exception) {
+                showKStudioMessage(
+                    "フォルダ作成",
+                    "作成に失敗しました: " + (e.message ?: "unknown")
+                )
             }
-            .show()
+        }
     }
-
-    // GitHub-style Create New File
-
-    private var fileCreateHidden = false
-
     private fun updateFileCreateHiddenButton() {
         if (!::fileCreateHiddenButton.isInitialized) return
         fileCreateHiddenButton.text =
@@ -3338,69 +3445,28 @@ class MainActivity : Activity() {
         entry: ManagedEntry,
         refresh: () -> Unit
     ) {
+        val options = if (entry.isDirectory) {
+            listOf("名前変更", "削除", "キャンセル")
+        } else {
+            listOf("内容をコピー", "クリップボードで置換", "名前変更", "削除", "キャンセル")
+        }
 
-        val options =
+        showKStudioChoiceDialog(entry.name, options) { which ->
             if (entry.isDirectory) {
-                arrayOf(
-                    "名前変更",
-                    "削除",
-                    "キャンセル"
-                )
+                when (which) {
+                    0 -> askRename(entry, refresh)
+                    1 -> askDelete(entry, refresh)
+                }
             } else {
-                arrayOf(
-                    "内容をコピー",
-                    "クリップボードで置換",
-                    "名前変更",
-                    "削除",
-                    "キャンセル"
-                )
-            }
-
-        android.app.AlertDialog.Builder(this)
-            .setTitle(entry.name)
-            .setItems(options) { _, which ->
-
-                if (entry.isDirectory) {
-
-                    when (which) {
-
-                        0 -> askRename(
-                            entry,
-                            refresh
-                        )
-
-                        1 -> askDelete(
-                            entry,
-                            refresh
-                        )
-                    }
-
-                } else {
-
-                    when (which) {
-
-                        0 -> copyFileContent(entry)
-
-                        1 -> replaceFileFromClipboard(
-                            entry,
-                            refresh
-                        )
-
-                        2 -> askRename(
-                            entry,
-                            refresh
-                        )
-
-                        3 -> askDelete(
-                            entry,
-                            refresh
-                        )
-                    }
+                when (which) {
+                    0 -> copyFileContent(entry)
+                    1 -> replaceFileFromClipboard(entry, refresh)
+                    2 -> askRename(entry, refresh)
+                    3 -> askDelete(entry, refresh)
                 }
             }
-            .show()
+        }
     }
-
     private fun copyFileContent(
         entry: ManagedEntry
     ) {
@@ -3446,249 +3512,126 @@ class MainActivity : Activity() {
         entry: ManagedEntry,
         refresh: () -> Unit
     ) {
-
-        val clipboard =
-            getSystemService(
-                Context.CLIPBOARD_SERVICE
-            ) as ClipboardManager
-
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
         if (!clipboard.hasPrimaryClip()) {
-
-            Toast.makeText(
-                this,
-                "クリップボードが空です",
-                Toast.LENGTH_SHORT
-            ).show()
-
+            showKStudioMessage("置換", "クリップボードが空です。")
             return
         }
 
-        val clip = clipboard.primaryClip
-            ?: return
+        val clip = clipboard.primaryClip ?: return
+        val value = clip.getItemAt(0).coerceToText(this).toString()
 
-        val value =
-            clip.getItemAt(0)
-                .coerceToText(this)
-                .toString()
+        showKStudioConfirm(
+            "ファイルを置換しますか？",
+            entry.name,
+            "置換"
+        ) {
+            try {
+                contentResolver.openOutputStream(entry.uri, "wt")?.use { stream ->
+                    stream.write(value.toByteArray(Charsets.UTF_8))
+                } ?: throw IllegalStateException("保存先を開けません")
 
-        android.app.AlertDialog.Builder(this)
-            .setTitle("ファイルを置換しますか？")
-            .setMessage(entry.name)
-            .setNegativeButton(
-                "キャンセル",
-                null
-            )
-            .setPositiveButton(
-                "置換"
-            ) { _, _ ->
-
-                try {
-
-                    contentResolver
-                        .openOutputStream(
-                            entry.uri,
-                            "wt"
-                        )
-                        ?.use { stream ->
-                            stream.write(
-                                value.toByteArray(
-                                    Charsets.UTF_8
-                                )
-                            )
-                        }
-                        ?: throw IllegalStateException(
-                            "保存先を開けません"
-                        )
-
-                    if (currentFileUri == entry.uri) {
-
-                        historyApplying = true
-                        codeEditor.setText(value)
-                        historyApplying = false
-
-                        undoStack.clear()
-                        redoStack.clear()
-                        isDirty = false
-
-                        updateEditorHeader()
-                        updateHistoryButtons()
-                        highlightCode()
-                        lineNumbers.invalidate()
-                    }
-
-                    refresh()
-
-                    Toast.makeText(
-                        this,
-                        "ファイルを置換しました",
-                        Toast.LENGTH_SHORT
-                    ).show()
-
-                } catch (e: Exception) {
-
+                if (currentFileUri == entry.uri) {
+                    historyApplying = true
+                    codeEditor.setText(value)
                     historyApplying = false
-
-                    Toast.makeText(
-                        this,
-                        "置換に失敗しました: " +
-                            (e.message ?: "unknown"),
-                        Toast.LENGTH_LONG
-                    ).show()
+                    undoStack.clear()
+                    redoStack.clear()
+                    isDirty = false
+                    updateEditorHeader()
+                    updateHistoryButtons()
+                    highlightCode()
+                    lineNumbers.invalidate()
                 }
-            }
-            .show()
-    }
 
+                refresh()
+                showKStudioMessage("置換", "ファイルを置換しました。")
+            } catch (e: Exception) {
+                historyApplying = false
+                showKStudioMessage("置換失敗", e.message ?: "unknown")
+            }
+        }
+    }
     private fun askRename(
         entry: ManagedEntry,
         refresh: () -> Unit
     ) {
-
-        val input =
-            EditText(this).apply {
-                setSingleLine(true)
-                setText(entry.name)
-                selectAll()
-            }
-
-        android.app.AlertDialog.Builder(this)
-            .setTitle("名前変更")
-            .setView(input)
-            .setNegativeButton(
-                "キャンセル",
-                null
-            )
-            .setPositiveButton(
-                "変更"
-            ) { _, _ ->
-
-                val newName =
-                    input.text
-                        .toString()
-                        .trim()
-
-                if (newName.isEmpty()) {
-                    return@setPositiveButton
+        showKStudioInputDialog(
+            "名前変更",
+            null,
+            "名前",
+            entry.name,
+            "変更"
+        ) { rawName ->
+            val newName = rawName.trim()
+            if (newName.isEmpty()) return@showKStudioInputDialog
+            try {
+                DocumentsContract.renameDocument(contentResolver, entry.uri, newName)
+                if (currentFileUri == entry.uri) {
+                    currentFileName = newName
+                    updateEditorHeader()
+                    configurePageHeader(newName, false)
                 }
-
-                try {
-
-                    DocumentsContract.renameDocument(
-                        contentResolver,
-                        entry.uri,
-                        newName
-                    )
-
-                    if (currentFileUri == entry.uri) {
-                        currentFileName = newName
-                        updateEditorHeader()
-                    }
-
-                    refresh()
-
-                } catch (_: Exception) {
-
-                    Toast.makeText(
-                        this,
-                        "名前変更に失敗しました",
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
+                refresh()
+            } catch (e: Exception) {
+                showKStudioMessage("名前変更", "変更に失敗しました: " + (e.message ?: "unknown"))
             }
-            .show()
+        }
     }
-
     private fun askDelete(
         entry: ManagedEntry,
         refresh: () -> Unit
     ) {
-
-        android.app.AlertDialog.Builder(this)
-            .setTitle("削除しますか？")
-            .setMessage(entry.name)
-            .setNegativeButton(
-                "キャンセル",
-                null
-            )
-            .setPositiveButton(
-                "削除"
-            ) { _, _ ->
-
-                confirmUnsavedChanges {
-
-                    try {
-
-                        DocumentsContract.deleteDocument(
-                            contentResolver,
-                            entry.uri
-                        )
-
-                        if (currentFileUri == entry.uri) {
-
-                            historyApplying = true
-                            codeEditor.setText("")
-                            historyApplying = false
-
-                            currentFileUri = null
-                            currentFileName = "新規ファイル"
-                            isDirty = false
-
-                            undoStack.clear()
-                            redoStack.clear()
-
-                            updateEditorHeader()
-                            updateHistoryButtons()
-                        }
-
-                        refresh()
-
-                    } catch (_: Exception) {
-
-                        Toast.makeText(
-                            this,
-                            "削除に失敗しました",
-                            Toast.LENGTH_SHORT
-                        ).show()
+        showKStudioConfirm(
+            "削除しますか？",
+            entry.name,
+            "削除"
+        ) {
+            confirmUnsavedChanges {
+                try {
+                    DocumentsContract.deleteDocument(contentResolver, entry.uri)
+                    if (currentFileUri == entry.uri) {
+                        historyApplying = true
+                        codeEditor.setText("")
+                        historyApplying = false
+                        currentFileUri = null
+                        currentFileName = "新規ファイル"
+                        isDirty = false
+                        undoStack.clear()
+                        redoStack.clear()
+                        updateEditorHeader()
+                        updateHistoryButtons()
                     }
+                    refresh()
+                } catch (e: Exception) {
+                    showKStudioMessage("削除", "削除に失敗しました: " + (e.message ?: "unknown"))
                 }
             }
-            .show()
+        }
     }
-
     private fun confirmUnsavedChanges(
         onContinue: () -> Unit
     ) {
-
         if (!isDirty) {
             onContinue()
             return
         }
 
-        android.app.AlertDialog.Builder(this)
-            .setTitle("未保存の変更")
-            .setMessage(
-                "変更内容を保存してから続行しますか？"
-            )
-            .setNegativeButton(
-                "破棄"
-            ) { _, _ ->
+        showKStudioThreeChoice(
+            "未保存の変更",
+            "変更内容を保存してから続行しますか？",
+            "保存",
+            "破棄",
+            "キャンセル",
+            {
+                saveCurrentFile(onComplete = onContinue)
+            },
+            {
                 isDirty = false
                 onContinue()
             }
-            .setNeutralButton(
-                "キャンセル",
-                null
-            )
-            .setPositiveButton(
-                "保存"
-            ) { _, _ ->
-                saveCurrentFile(
-                    onComplete = onContinue
-                )
-            }
-            .show()
+        )
     }
-
     private fun getDocumentName(
         uri: Uri
     ): String {
