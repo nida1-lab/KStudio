@@ -7,6 +7,8 @@ import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
+import android.net.Uri
+import android.provider.DocumentsContract
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
@@ -157,6 +159,25 @@ class CollaborationActivity : Activity() {
         scroll.addView(memberList)
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
 
+        root.addView(
+            Button(this).apply {
+                text = "プロジェクトを削除"
+                styleButton()
+                visibility = View.GONE
+                setOnClickListener {
+                    if (!isCurrentOwner()) {
+                        showMessage("権限がありません", "プロジェクトを削除できるのは所有者だけです。")
+                        return@setOnClickListener
+                    }
+                    showDeleteProjectDialog()
+                }
+                tag = "owner_delete"
+            },
+            LinearLayout.LayoutParams(-1, dp(46)).apply {
+                setMargins(dp(16), dp(4), dp(16), dp(16))
+            }
+        )
+
         setContentView(root)
     }
 
@@ -234,6 +255,9 @@ class CollaborationActivity : Activity() {
         statusText.text =
             "あなた: " + currentAccount.ifBlank { "未設定" } +
             "  /  権限: " + (mine?.role ?: "未参加")
+
+        root.findViewWithTag<Button>("owner_delete")?.visibility =
+            if (isCurrentOwner()) View.VISIBLE else View.GONE
 
         memberList.removeAllViews()
 
@@ -358,6 +382,76 @@ class CollaborationActivity : Activity() {
             setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
         }
         close.setOnClickListener { popup.dismiss() }
+        popup.showAtLocation(root, Gravity.CENTER, 0, 0)
+    }
+
+
+    private fun isCurrentOwner(): Boolean =
+        members.firstOrNull { it.name.equals(currentAccount, true) }?.role == "所有者"
+
+    private fun showDeleteProjectDialog() {
+        val overlay = android.widget.FrameLayout(this)
+        overlay.setBackgroundColor(Color.argb(110, 0, 0, 0))
+
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(18), dp(20), dp(18))
+            background = roundedBackground(surface(), 16)
+        }
+
+        panel.addView(TextView(this).apply {
+            text = "プロジェクトを削除しますか？"
+            textSize = 20f
+            setTextColor(textPrimary())
+            typeface = Typeface.DEFAULT_BOLD
+        })
+        panel.addView(TextView(this).apply {
+            text = "この操作は所有者だけが行えます。削除すると元に戻せません。"
+            textSize = 14f
+            setTextColor(textPrimary())
+            setPadding(0, dp(12), 0, dp(16))
+        })
+
+        val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        lateinit var popup: PopupWindow
+
+        val cancel = Button(this).apply {
+            text = "キャンセル"
+            styleButton()
+            setOnClickListener { popup.dismiss() }
+        }
+        val delete = Button(this).apply {
+            text = "削除"
+            styleButton()
+            setOnClickListener {
+                popup.dismiss()
+                try {
+                    if (projectUri.isBlank()) throw IllegalStateException("プロジェクト情報がありません")
+                    DocumentsContract.deleteDocument(contentResolver, Uri.parse(projectUri))
+                    finish()
+                } catch (e: Exception) {
+                    showMessage("削除失敗", e.message ?: "プロジェクトを削除できませんでした。")
+                }
+            }
+        }
+
+        row.addView(cancel, LinearLayout.LayoutParams(0, dp(46), 1f))
+        row.addView(delete, LinearLayout.LayoutParams(0, dp(46), 1f).apply {
+            marginStart = dp(12)
+        })
+        panel.addView(row)
+
+        overlay.addView(panel, android.widget.FrameLayout.LayoutParams(
+            minOf(dp(390), resources.displayMetrics.widthPixels - dp(32)),
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            Gravity.CENTER
+        ))
+
+        popup = PopupWindow(overlay, -1, -1, true).apply {
+            isOutsideTouchable = true
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        }
+        overlay.setOnClickListener { popup.dismiss() }
         popup.showAtLocation(root, Gravity.CENTER, 0, 0)
     }
 
