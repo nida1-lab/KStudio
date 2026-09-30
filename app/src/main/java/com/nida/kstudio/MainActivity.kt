@@ -1274,8 +1274,8 @@ class MainActivity : Activity() {
             panel,
             FrameLayout.LayoutParams(
                 panelWidth,
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                Gravity.START
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.START or Gravity.TOP
             )
         )
 
