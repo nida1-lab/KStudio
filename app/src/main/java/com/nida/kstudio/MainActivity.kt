@@ -28,7 +28,6 @@ import android.widget.Spinner
 import android.widget.ArrayAdapter
 import android.widget.TextView
 import android.widget.ScrollView
-import android.widget.Toast
 import android.window.OnBackInvokedCallback
 import android.window.OnBackInvokedDispatcher
 import java.text.SimpleDateFormat
@@ -965,7 +964,7 @@ class MainActivity : Activity() {
     }
     private fun showSaveCommitPanel() {
         if (currentFileUri == null) {
-            Toast.makeText(this, "No file to save", Toast.LENGTH_SHORT).show()
+            showKStudioNotice("No file to save")
             return
         }
 
@@ -1660,6 +1659,9 @@ class MainActivity : Activity() {
             setTextColor(primaryTextColor())
             setTypeface(null, android.graphics.Typeface.BOLD)
         })
+
+        lateinit var popup: PopupWindow
+
         options.forEachIndexed { index, option ->
             panel.addView(
                 Button(this).apply {
@@ -1678,16 +1680,12 @@ class MainActivity : Activity() {
             )
         }
 
-        root.addView(
-            panel,
-            FrameLayout.LayoutParams(
-                minOf(dpToPx(390), resources.displayMetrics.widthPixels - dpToPx(32)),
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                Gravity.CENTER
-            )
-        )
+        root.addView(panel, FrameLayout.LayoutParams(
+            minOf(dpToPx(390), resources.displayMetrics.widthPixels - dpToPx(32)),
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            Gravity.CENTER
+        ))
 
-        lateinit var popup: PopupWindow
         popup = PopupWindow(root, -1, -1, true).apply {
             isOutsideTouchable = true
             setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
@@ -1695,7 +1693,6 @@ class MainActivity : Activity() {
         scrim.setOnClickListener { popup.dismiss() }
         popup.showAtLocation(topMenuBar, Gravity.CENTER, 0, 0)
     }
-
     private fun showKStudioInputDialog(
         titleText: String,
         message: String?,
@@ -1744,21 +1741,14 @@ class MainActivity : Activity() {
         val cancel = Button(this).apply { text = "キャンセル"; styleKStudioButton(this) }
         val confirm = Button(this).apply { text = confirmText; styleKStudioButton(this) }
         buttons.addView(cancel, LinearLayout.LayoutParams(0, dpToPx(46), 1f))
-        buttons.addView(confirm, LinearLayout.LayoutParams(0, dpToPx(46), 1f).apply {
-            marginStart = dpToPx(12)
-        })
-        panel.addView(buttons, LinearLayout.LayoutParams(-1, dpToPx(58)).apply {
-            topMargin = dpToPx(12)
-        })
+        buttons.addView(confirm, LinearLayout.LayoutParams(0, dpToPx(46), 1f).apply { marginStart = dpToPx(12) })
+        panel.addView(buttons, LinearLayout.LayoutParams(-1, dpToPx(58)).apply { topMargin = dpToPx(12) })
 
-        root.addView(
-            panel,
-            FrameLayout.LayoutParams(
-                minOf(dpToPx(390), resources.displayMetrics.widthPixels - dpToPx(32)),
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                Gravity.CENTER
-            )
-        )
+        root.addView(panel, FrameLayout.LayoutParams(
+            minOf(dpToPx(390), resources.displayMetrics.widthPixels - dpToPx(32)),
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            Gravity.CENTER
+        ))
 
         lateinit var popup: PopupWindow
         popup = PopupWindow(root, -1, -1, true).apply {
@@ -1775,7 +1765,6 @@ class MainActivity : Activity() {
         popup.showAtLocation(topMenuBar, Gravity.CENTER, 0, 0)
         input.requestFocus()
     }
-
     private fun showKStudioThreeChoice(
         titleText: String,
         message: String,
@@ -1808,6 +1797,8 @@ class MainActivity : Activity() {
         })
 
         val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        lateinit var popup: PopupWindow
+
         fun addAction(textValue: String, action: (() -> Unit)?) {
             val button = Button(this).apply {
                 text = textValue
@@ -1822,21 +1813,18 @@ class MainActivity : Activity() {
                 marginStart = if (row.childCount == 0) 0 else dpToPx(10)
             })
         }
+
         addAction(firstText, firstAction)
         addAction(secondText, secondAction)
         addAction(thirdText, null)
         panel.addView(row)
 
-        root.addView(
-            panel,
-            FrameLayout.LayoutParams(
-                minOf(dpToPx(430), resources.displayMetrics.widthPixels - dpToPx(24)),
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                Gravity.CENTER
-            )
-        )
+        root.addView(panel, FrameLayout.LayoutParams(
+            minOf(dpToPx(430), resources.displayMetrics.widthPixels - dpToPx(24)),
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            Gravity.CENTER
+        ))
 
-        lateinit var popup: PopupWindow
         popup = PopupWindow(root, -1, -1, true).apply {
             isOutsideTouchable = true
             setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
@@ -2078,11 +2066,7 @@ class MainActivity : Activity() {
 
         if (existing != null) {
             if (existing.isDirectory) {
-                Toast.makeText(
-                    this,
-                    "MainActivity.kt というフォルダが既にあります",
-                    Toast.LENGTH_LONG
-                ).show()
+                showKStudioNotice("MainActivity.kt というフォルダが既にあります")
                 onReady()
                 return
             }
@@ -2153,12 +2137,8 @@ class MainActivity : Activity() {
 
         } catch (e: Exception) {
 
-            Toast.makeText(
-                this,
-                "初期ファイル作成に失敗しました: " +
-                    (e.message ?: "unknown"),
-                Toast.LENGTH_LONG
-            ).show()
+            showKStudioNotice("初期ファイル作成に失敗しました: " +
+                    (e.message ?: "unknown"))
 
             onReady()
         }
@@ -2272,9 +2252,9 @@ class MainActivity : Activity() {
 
             renderHomeFiles()
             if (fileTab.visibility == View.VISIBLE) renderFileBrowser()
-            Toast.makeText(this, count.toString() + " 個のファイルをアップロードしました", Toast.LENGTH_SHORT).show()
+            showKStudioNotice(count.toString() + " 個のファイルをアップロードしました")
         } catch (e: Exception) {
-            Toast.makeText(this, "アップロードに失敗しました: " + (e.message ?: "unknown"), Toast.LENGTH_LONG).show()
+            showKStudioNotice("アップロードに失敗しました: " + (e.message ?: "unknown"))
         }
     }
 
@@ -2300,9 +2280,9 @@ class MainActivity : Activity() {
             copyExternalFolder(source, target, source)
             renderHomeFiles()
             if (fileTab.visibility == View.VISIBLE) renderFileBrowser()
-            Toast.makeText(this, "フォルダをアップロードしました", Toast.LENGTH_SHORT).show()
+            showKStudioNotice("フォルダをアップロードしました")
         } catch (e: Exception) {
-            Toast.makeText(this, "フォルダのアップロードに失敗しました: " + (e.message ?: "unknown"), Toast.LENGTH_LONG).show()
+            showKStudioNotice("フォルダのアップロードに失敗しました: " + (e.message ?: "unknown"))
         }
     }
 
@@ -2552,11 +2532,7 @@ class MainActivity : Activity() {
                                     entry.mimeType
                                 )
                             ) {
-                                Toast.makeText(
-                                    this@MainActivity,
-                                    "このファイルはKStudioで編集できません",
-                                    Toast.LENGTH_SHORT
-                                ).show()
+                                showKStudioNotice("このファイルはKStudioで編集できません")
 
                                 return@setOnClickListener
                             }
@@ -2596,11 +2572,7 @@ class MainActivity : Activity() {
 
         if (currentFolderStack.isEmpty()) {
 
-            Toast.makeText(
-                this,
-                "これ以上上には移動できません",
-                Toast.LENGTH_SHORT
-            ).show()
+            showKStudioNotice("これ以上上には移動できません")
 
             return
         }
@@ -2638,11 +2610,7 @@ class MainActivity : Activity() {
 
     private fun showNoFolderToast() {
 
-        Toast.makeText(
-            this,
-            "先にフォルダを選択してください",
-            Toast.LENGTH_SHORT
-        ).show()
+        showKStudioNotice("先にフォルダを選択してください")
     }
 
     private fun queryFolderFromTree(
@@ -2913,12 +2881,8 @@ class MainActivity : Activity() {
 
         } catch (e: Exception) {
 
-            Toast.makeText(
-                this,
-                "フォルダを読み込めませんでした: " +
-                    (e.message ?: "unknown"),
-                Toast.LENGTH_SHORT
-            ).show()
+            showKStudioNotice("フォルダを読み込めませんでした: " +
+                    (e.message ?: "unknown"))
         }
 
         return result.sortedWith(
@@ -2947,11 +2911,7 @@ class MainActivity : Activity() {
 
                 if (text.length > 2_000_000) {
 
-                    Toast.makeText(
-                        this,
-                        "大きすぎるファイルです",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    showKStudioNotice("大きすぎるファイルです")
 
                     return@confirmUnsavedChanges
                 }
@@ -2973,22 +2933,14 @@ class MainActivity : Activity() {
                 highlightCode()
                 showEditorScreen()
 
-                Toast.makeText(
-                    this,
-                    "開きました: " + name,
-                    Toast.LENGTH_SHORT
-                ).show()
+                showKStudioNotice("開きました: " + name)
 
             } catch (e: Exception) {
 
                 historyApplying = false
 
-                Toast.makeText(
-                    this,
-                    "ファイルを開けませんでした: " +
-                        (e.message ?: "unknown"),
-                    Toast.LENGTH_SHORT
-                ).show()
+                showKStudioNotice("ファイルを開けませんでした: " +
+                        (e.message ?: "unknown"))
             }
         }
     }
@@ -3001,11 +2953,7 @@ class MainActivity : Activity() {
 
         if (uri == null) {
 
-            Toast.makeText(
-                this,
-                "保存先ファイルがありません",
-                Toast.LENGTH_SHORT
-            ).show()
+            showKStudioNotice("保存先ファイルがありません")
 
             onComplete?.invoke()
             return
@@ -3030,22 +2978,14 @@ class MainActivity : Activity() {
             isDirty = false
             updateEditorHeader()
 
-            Toast.makeText(
-                this,
-                "保存しました",
-                Toast.LENGTH_SHORT
-            ).show()
+            showKStudioNotice("保存しました")
 
             onComplete?.invoke()
 
         } catch (e: Exception) {
 
-            Toast.makeText(
-                this,
-                "保存に失敗しました: " +
-                    (e.message ?: "unknown"),
-                Toast.LENGTH_LONG
-            ).show()
+            showKStudioNotice("保存に失敗しました: " +
+                    (e.message ?: "unknown"))
         }
     }
 
@@ -3123,20 +3063,12 @@ class MainActivity : Activity() {
                 .toString()
 
         if (rawPath.isEmpty()) {
-            Toast.makeText(
-                this,
-                "ファイル名を入力してください",
-                Toast.LENGTH_SHORT
-            ).show()
+            showKStudioNotice("ファイル名を入力してください")
             return
         }
 
         if (content.length > 2_000_000) {
-            Toast.makeText(
-                this,
-                "ファイル内容が大きすぎます（2MB以下）",
-                Toast.LENGTH_SHORT
-            ).show()
+            showKStudioNotice("ファイル内容が大きすぎます（2MB以下）")
             return
         }
 
@@ -3144,11 +3076,7 @@ class MainActivity : Activity() {
             rawPath.contains('\\') ||
             rawPath.startsWith("/")
         ) {
-            Toast.makeText(
-                this,
-                "ファイルパスが正しくありません",
-                Toast.LENGTH_SHORT
-            ).show()
+            showKStudioNotice("ファイルパスが正しくありません")
             return
         }
 
@@ -3161,11 +3089,7 @@ class MainActivity : Activity() {
             segments.isEmpty() ||
             segments.any { it.isEmpty() }
         ) {
-            Toast.makeText(
-                this,
-                "ファイルパスに空の階層があります",
-                Toast.LENGTH_SHORT
-            ).show()
+            showKStudioNotice("ファイルパスに空の階層があります")
             return
         }
 
@@ -3178,21 +3102,13 @@ class MainActivity : Activity() {
                 )
 
             if (validation != null) {
-                Toast.makeText(
-                    this,
-                    validation,
-                    Toast.LENGTH_SHORT
-                ).show()
+                showKStudioNotice(validation)
                 return
             }
         }
 
         if (segments.size > 20) {
-            Toast.makeText(
-                this,
-                "フォルダ階層が深すぎます",
-                Toast.LENGTH_SHORT
-            ).show()
+            showKStudioNotice("フォルダ階層が深すぎます")
             return
         }
 
@@ -3321,23 +3237,15 @@ class MainActivity : Activity() {
 
                 showHomeTab()
 
-                Toast.makeText(
-                    this,
-                    "ファイルを作成しました: " +
-                        rawPath,
-                    Toast.LENGTH_LONG
-                ).show()
+                showKStudioNotice("ファイルを作成しました: " +
+                        rawPath)
 
             } catch (e: Exception) {
 
                 historyApplying = false
 
-                Toast.makeText(
-                    this,
-                    "ファイル作成に失敗しました: " +
-                        (e.message ?: "unknown"),
-                    Toast.LENGTH_LONG
-                ).show()
+                showKStudioNotice("ファイル作成に失敗しました: " +
+                        (e.message ?: "unknown"))
             }
         }
     }
@@ -3422,22 +3330,14 @@ class MainActivity : Activity() {
             highlightCode()
             lineNumbers.invalidate()
 
-            Toast.makeText(
-                this,
-                "作成しました: " + name,
-                Toast.LENGTH_SHORT
-            ).show()
+            showKStudioNotice("作成しました: " + name)
 
         } catch (e: Exception) {
 
             historyApplying = false
 
-            Toast.makeText(
-                this,
-                "ファイル作成に失敗しました: " +
-                    (e.message ?: "unknown"),
-                Toast.LENGTH_LONG
-            ).show()
+            showKStudioNotice("ファイル作成に失敗しました: " +
+                    (e.message ?: "unknown"))
         }
     }
 
@@ -3492,19 +3392,11 @@ class MainActivity : Activity() {
                 )
             )
 
-            Toast.makeText(
-                this,
-                "ファイル内容をコピーしました",
-                Toast.LENGTH_SHORT
-            ).show()
+            showKStudioNotice("ファイル内容をコピーしました")
 
         } catch (_: Exception) {
 
-            Toast.makeText(
-                this,
-                "コピーに失敗しました",
-                Toast.LENGTH_SHORT
-            ).show()
+            showKStudioNotice("コピーに失敗しました")
         }
     }
 
@@ -4672,11 +4564,7 @@ class MainActivity : Activity() {
 
         showHomeTab()
 
-        Toast.makeText(
-            this,
-            "プロジェクトを開きました",
-            Toast.LENGTH_SHORT
-        ).show()
+        showKStudioNotice("プロジェクトを開きました")
     }
 
     private fun getFolderLastModified(uri: Uri): String {
@@ -4823,13 +4711,9 @@ class MainActivity : Activity() {
 
         saveRunHistory(true)
 
-        Toast.makeText(
-            this,
-            "Android Previewを起動しました (" +
+        showKStudioNotice("Android Previewを起動しました (" +
                 result.scannedFiles +
-                " files)",
-            Toast.LENGTH_SHORT
-        ).show()
+                " files)")
     }
 
     private fun validateCode(
@@ -5188,11 +5072,7 @@ class MainActivity : Activity() {
                     clipboard.setPrimaryClip(
                         ClipData.newPlainText("KStudio 履歴コード", serial)
                     )
-                    Toast.makeText(
-                        this@MainActivity,
-                        "固有コードをコピーしました",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    showKStudioNotice("固有コードをコピーしました")
                 }
             },
             LinearLayout.LayoutParams(dpToPx(76), dpToPx(40))
@@ -5270,7 +5150,7 @@ class MainActivity : Activity() {
                 .remove("history")
                 .apply()
             renderHistoryTab()
-            Toast.makeText(this, "履歴を削除しました", Toast.LENGTH_SHORT).show()
+            showKStudioNotice("履歴を削除しました")
         }
     }
 
@@ -5882,11 +5762,7 @@ class MainActivity : Activity() {
                         )
                     )
 
-                    Toast.makeText(
-                        this@MainActivity,
-                        "エラーコードをコピーしました",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    showKStudioNotice("エラーコードをコピーしました")
                 }
             }
 
@@ -6023,11 +5899,7 @@ class MainActivity : Activity() {
                 clip
             )
 
-            Toast.makeText(
-                this,
-                "$code をコピーしました",
-                Toast.LENGTH_SHORT
-            ).show()
+            showKStudioNotice("$code をコピーしました")
         }
 
         root.addView(
