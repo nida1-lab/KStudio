@@ -1256,6 +1256,7 @@ class MainActivity : Activity() {
         addItem("プロジェクト一覧", { showProjects() })
         addItem("ファイル管理", { showFileManager() })
         addItem("設定", { showSettingsDialog() })
+        addItem("クラウド", { showKStudioMessage("クラウド", "クラウド機能は実装中です。") }, R.drawable.ic_cloud_simple)
         addItem("アカウント", { showAccountDialog() })
 
         val close = Button(this).apply {
@@ -1293,21 +1294,9 @@ class MainActivity : Activity() {
         }
 
         fun dismissDrawer() {
-            if (!isMenuAnimationEnabled()) {
-                drawer.dismiss()
-                return
-            }
-
-            panel.animate()
-                .translationX(-panelWidth.toFloat())
-                .setDuration(180)
-                .withEndAction { drawer.dismiss() }
-                .start()
-
-            scrim.animate()
-                .alpha(0f)
-                .setDuration(180)
-                .start()
+            panel.translationX = -panelWidth.toFloat()
+            scrim.alpha = 0f
+            drawer.dismiss()
         }
 
         scrim.setOnClickListener { dismissDrawer() }
@@ -1324,6 +1313,7 @@ class MainActivity : Activity() {
                         "プロジェクト一覧" -> showProjects()
                         "ファイル管理" -> showFileManager()
                         "設定" -> showSettingsDialog()
+                        "クラウド" -> showKStudioMessage("クラウド", "クラウド機能は実装中です。")
                         "アカウント" -> showAccountDialog()
                     }
                     dismissDrawer()
@@ -1338,23 +1328,9 @@ class MainActivity : Activity() {
             0
         )
 
-        if (isMenuAnimationEnabled()) {
-            panel.translationX = -panelWidth.toFloat()
-            panel.animate()
-                .translationX(0f)
-                .alpha(1f)
-                .setDuration(220)
-                .start()
-
-            scrim.animate()
-                .alpha(1f)
-                .setDuration(220)
-                .start()
-        } else {
-            panel.translationX = 0f
-            panel.alpha = 1f
-            scrim.alpha = 1f
-        }
+        panel.translationX = 0f
+        panel.alpha = 1f
+        scrim.alpha = 1f
     }
 
     private fun showSettingsDialog() {
@@ -1728,22 +1704,9 @@ class MainActivity : Activity() {
             0
         )
 
-        if (isMenuAnimationEnabled()) {
-            panel.translationX = panelWidth.toFloat()
-            panel.animate()
-                .translationX(0f)
-                .alpha(1f)
-                .setDuration(220)
-                .start()
-            scrim.animate()
-                .alpha(1f)
-                .setDuration(180)
-                .start()
-        } else {
-            panel.translationX = 0f
-            panel.alpha = 1f
-            scrim.alpha = 1f
-        }
+        panel.translationX = 0f
+        panel.alpha = 1f
+        scrim.alpha = 1f
     }
 
     private fun showAccountDialog() {
@@ -1836,15 +1799,9 @@ class MainActivity : Activity() {
         }
 
         popup.showAtLocation(topMenuBar, Gravity.CENTER, 0, 0)
-        panel.alpha = 0f
-        panel.scaleX = 0.96f
-        panel.scaleY = 0.96f
-        panel.animate()
-            .alpha(1f)
-            .scaleX(1f)
-            .scaleY(1f)
-            .setDuration(180)
-            .start()
+        panel.alpha = 1f
+        panel.scaleX = 1f
+        panel.scaleY = 1f
     }
 
     private fun startNewProject() {
@@ -4424,11 +4381,9 @@ class MainActivity : Activity() {
         val parent = editorContainer.parent as? LinearLayout ?: return
         val newSwapped = !editorPreviewSwapped
 
-        if (!isMenuAnimationEnabled()) {
-            editorPreviewSwapped = newSwapped
-            applyEditorPreviewOrder()
-            return
-        }
+        editorPreviewSwapped = newSwapped
+        applyEditorPreviewOrder()
+        return
 
         val delta = (previewArea.top - editorContainer.top).toFloat()
         if (kotlin.math.abs(delta) < dpToPx(40)) {
@@ -5426,17 +5381,7 @@ class MainActivity : Activity() {
         panel: View,
         animate: Boolean
     ) {
-        if (!animate) {
-            popup.dismiss()
-            return
-        }
-        panel.animate()
-            .alpha(0f)
-            .scaleX(0.98f)
-            .scaleY(0.98f)
-            .setDuration(140)
-            .withEndAction { popup.dismiss() }
-            .start()
+        popup.dismiss()
     }
 
     private fun showKStudioConfirm(
