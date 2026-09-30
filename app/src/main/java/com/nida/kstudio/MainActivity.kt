@@ -1256,7 +1256,7 @@ class MainActivity : Activity() {
         addItem("プロジェクト一覧", { showProjects() })
         addItem("ファイル管理", { showFileManager() })
         addItem("設定", { showSettingsDialog() })
-        addItem("クラウド", { showKStudioMessage("クラウド", "クラウド機能は実装中です。") }, R.drawable.ic_cloud_simple)
+        addItem("クラウド  [実装中]", { showKStudioMessage("クラウド", "クラウド機能は実装中です。") })
         addItem("アカウント", { showAccountDialog() })
 
         val close = Button(this).apply {
@@ -1313,7 +1313,7 @@ class MainActivity : Activity() {
                         "プロジェクト一覧" -> showProjects()
                         "ファイル管理" -> showFileManager()
                         "設定" -> showSettingsDialog()
-                        "クラウド" -> showKStudioMessage("クラウド", "クラウド機能は実装中です。")
+                        "クラウド  [実装中]" -> showKStudioMessage("クラウド", "クラウド機能は実装中です。")
                         "アカウント" -> showAccountDialog()
                     }
                     dismissDrawer()
@@ -4395,28 +4395,10 @@ class MainActivity : Activity() {
         swapAnimating = true
         editorPreviewSwapped = newSwapped
 
-        editorContainer.animate().cancel()
-        previewArea.animate().cancel()
         editorContainer.translationY = 0f
         previewArea.translationY = 0f
-
-        editorContainer.animate()
-            .translationY(if (newSwapped) delta else -delta)
-            .setDuration(300)
-            .setInterpolator(android.view.animation.AccelerateDecelerateInterpolator())
-            .start()
-
-        previewArea.animate()
-            .translationY(if (newSwapped) -delta else delta)
-            .setDuration(300)
-            .setInterpolator(android.view.animation.AccelerateDecelerateInterpolator())
-            .withEndAction {
-                editorContainer.translationY = 0f
-                previewArea.translationY = 0f
-                applyEditorPreviewOrder()
-                swapAnimating = false
-            }
-            .start()
+        applyEditorPreviewOrder()
+        swapAnimating = false
     }
 
     private fun applyEditorPreviewOrder() {
