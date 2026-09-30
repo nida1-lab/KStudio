@@ -5329,18 +5329,19 @@ class MainActivity : Activity() {
 
     private fun styleKStudioButton(button: Button) {
         button.setAllCaps(false)
-        button.setTextColor(primaryTextColor())
+        val accent = when (button.text.toString()) {
+            "Run" -> Color.rgb(0, 128, 255)
+            "保存" -> Color.rgb(0, 170, 120)
+            "↶" -> Color.rgb(125, 95, 220)
+            "↷" -> Color.rgb(220, 145, 45)
+            else -> if (isDarkMode()) Color.rgb(48, 48, 52) else Color.rgb(236, 240, 244)
+        }
+        val accentText = if (button.text.toString() in listOf("Run", "保存")) Color.WHITE else primaryTextColor()
+        button.setTextColor(accentText)
         button.background = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
-            setColor(
-                if (isDarkMode()) Color.rgb(48, 48, 52)
-                else Color.rgb(236, 240, 244)
-            )
-            setStroke(
-                dpToPx(1),
-                if (isDarkMode()) Color.rgb(78, 78, 84)
-                else Color.rgb(214, 218, 224)
-            )
+            setColor(accent)
+            setStroke(dpToPx(1), accent)
             cornerRadius = dpToPx(10).toFloat()
         }
         button.minHeight = dpToPx(44)
@@ -5466,15 +5467,9 @@ class MainActivity : Activity() {
         }
 
         popup.showAtLocation(topMenuBar, Gravity.CENTER, 0, 0)
-        panel.alpha = 0f
-        panel.scaleX = 0.96f
-        panel.scaleY = 0.96f
-        panel.animate()
-            .alpha(1f)
-            .scaleX(1f)
-            .scaleY(1f)
-            .setDuration(180)
-            .start()
+        panel.alpha = 1f
+        panel.scaleX = 1f
+        panel.scaleY = 1f
     }
 
     private fun historySerial(): String {
