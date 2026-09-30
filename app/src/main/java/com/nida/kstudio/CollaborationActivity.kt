@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
@@ -11,6 +12,7 @@ import android.net.Uri
 import android.provider.DocumentsContract
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
@@ -69,7 +71,7 @@ class CollaborationActivity : Activity() {
         header.addView(Button(this).apply {
             text = "←"
             textSize = 20f
-            styleButton()
+            styleButton(this)
             setOnClickListener { finish() }
         }, LinearLayout.LayoutParams(dp(58), dp(46)))
 
@@ -116,7 +118,7 @@ class CollaborationActivity : Activity() {
 
         val addButton = Button(this).apply {
             text = "メンバーを追加"
-            styleButton()
+            styleButton(this)
             setOnClickListener {
                 val name = addInput.text.toString().trim()
                 if (name.isBlank()) {
@@ -162,7 +164,7 @@ class CollaborationActivity : Activity() {
         root.addView(
             Button(this).apply {
                 text = "プロジェクトを削除"
-                styleButton()
+                styleButton(this)
                 visibility = View.GONE
                 setOnClickListener {
                     if (!isCurrentOwner()) {
@@ -289,7 +291,7 @@ class CollaborationActivity : Activity() {
 
                 val roleButton = Button(this).apply {
                     text = "権限変更"
-                    styleButton()
+                    styleButton(this)
                     isEnabled = member.role != "所有者" || member.name.equals(currentAccount, true)
                     setOnClickListener {
                         changeRole(index)
@@ -304,7 +306,7 @@ class CollaborationActivity : Activity() {
 
                 val removeButton = Button(this).apply {
                     text = "削除"
-                    styleButton()
+                    styleButton(this)
                     isEnabled = canDelete(member) && !member.name.equals(currentAccount, true)
                     setOnClickListener {
                         members.removeAt(index)
@@ -369,7 +371,7 @@ class CollaborationActivity : Activity() {
         })
         val close = Button(this).apply {
             text = "閉じる"
-            styleButton()
+            styleButton(this)
         }
         overlay.addView(close, LinearLayout.LayoutParams(-1, dp(46)))
 
@@ -417,12 +419,12 @@ class CollaborationActivity : Activity() {
 
         val cancel = Button(this).apply {
             text = "キャンセル"
-            styleButton()
+            styleButton(this)
             setOnClickListener { popup.dismiss() }
         }
         val delete = Button(this).apply {
             text = "削除"
-            styleButton()
+            styleButton(this)
             setOnClickListener {
                 popup.dismiss()
                 try {
