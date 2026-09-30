@@ -2216,16 +2216,13 @@ class MainActivity : Activity() {
     // File Manager Tab
 
     private fun showFileManager() {
-
-        if (fullscreen) {
-            togglePreviewFullscreen()
-        }
-
+        if (fullscreen) togglePreviewFullscreen()
         if (folderRootUri == null || currentFolderUri == null) {
             showNoFolderToast()
             return
         }
 
+        homeTab.visibility = View.GONE
         projectTab.visibility = View.GONE
         fileTab.visibility = View.VISIBLE
         historyTab.visibility = View.GONE
@@ -2235,11 +2232,12 @@ class MainActivity : Activity() {
         searchBar.visibility = View.GONE
         projectBar.visibility = View.GONE
 
+        currentScreen = "FILES"
+        configurePageHeader("ファイル", false)
+        findViewById<Button>(R.id.menuButton).setOnClickListener { handleBackNavigation() }
         showFileBrowserTab()
     }
-
     private fun showFileBrowserTab() {
-
         if (folderRootUri == null || currentFolderUri == null) {
             showNoFolderToast()
             return
@@ -2248,6 +2246,7 @@ class MainActivity : Activity() {
         fileTab.visibility = View.VISIBLE
         projectTab.visibility = View.GONE
         historyTab.visibility = View.GONE
+        homeTab.visibility = View.GONE
         editorContainer.visibility = View.GONE
         previewArea.visibility = View.GONE
         bottomHeader.visibility = View.GONE
@@ -2256,11 +2255,12 @@ class MainActivity : Activity() {
         fileBrowserPanel.visibility = View.VISIBLE
         fileCreatePanel.visibility = View.GONE
 
+        currentScreen = "FILES"
+        configurePageHeader("ファイル", false)
+        findViewById<Button>(R.id.menuButton).setOnClickListener { handleBackNavigation() }
         renderFileBrowser()
     }
-
     private fun showCreateFileTab() {
-
         if (folderRootUri == null || currentFolderUri == null) {
             showNoFolderToast()
             return
@@ -2269,22 +2269,22 @@ class MainActivity : Activity() {
         projectTab.visibility = View.GONE
         fileTab.visibility = View.VISIBLE
         historyTab.visibility = View.GONE
+        homeTab.visibility = View.GONE
         editorContainer.visibility = View.GONE
         previewArea.visibility = View.GONE
         bottomHeader.visibility = View.GONE
         searchBar.visibility = View.GONE
         projectBar.visibility = View.GONE
-
         fileBrowserPanel.visibility = View.GONE
         fileCreatePanel.visibility = View.VISIBLE
 
-        fileCreateLocation.text =
-            "作成先: " +
-                getCurrentFolderDisplayName()
+        currentScreen = "FILES"
+        configurePageHeader("新規ファイル", false)
+        findViewById<Button>(R.id.menuButton).setOnClickListener { handleBackNavigation() }
 
+        fileCreateLocation.text = "作成先: " + getCurrentFolderDisplayName()
         fileCreatePathInput.setText("Main.kt")
         fileCreatePathInput.selectAll()
-
         fileCreateContentInput.setText("")
 
         if (!::fileCreateHiddenButton.isInitialized) {
@@ -2315,7 +2315,6 @@ class MainActivity : Activity() {
         updateFileCreateHiddenButton()
         fileCreatePathInput.requestFocus()
     }
-
     private fun renderFileBrowser() {
 
         val current =
@@ -4182,6 +4181,10 @@ class MainActivity : Activity() {
 
         applyEditorSettings()
         styleButtonsInView(findViewById(android.R.id.content))
+        accountButton.background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(if (isDarkMode()) Color.rgb(48, 48, 52) else Color.rgb(236, 238, 242))
+        }
     }
 
     // Preview Fullscreen    // Preview Fullscreen
@@ -4244,6 +4247,7 @@ class MainActivity : Activity() {
         searchBar.visibility = View.GONE
         projectBar.visibility = View.GONE
 
+        currentScreen = "HOME"
         configurePageHeader("HOME", true)
         findViewById<Button>(R.id.menuButton).setOnClickListener {
             showMainMenu(findViewById(R.id.menuButton))
@@ -5127,11 +5131,9 @@ class MainActivity : Activity() {
     // History Tab
 
     private fun showHistory() {
+        if (fullscreen) togglePreviewFullscreen()
 
-        if (fullscreen) {
-            togglePreviewFullscreen()
-        }
-
+        homeTab.visibility = View.GONE
         projectTab.visibility = View.GONE
         fileTab.visibility = View.GONE
         historyTab.visibility = View.VISIBLE
@@ -5141,9 +5143,11 @@ class MainActivity : Activity() {
         searchBar.visibility = View.GONE
         projectBar.visibility = View.GONE
 
+        currentScreen = "HISTORY"
+        configurePageHeader("履歴", false)
+        findViewById<Button>(R.id.menuButton).setOnClickListener { handleBackNavigation() }
         renderHistoryTab()
     }
-
     private fun renderHistoryTab() {
         purgeHistory()
 
