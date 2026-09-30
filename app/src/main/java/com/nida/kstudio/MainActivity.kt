@@ -680,7 +680,6 @@ class MainActivity : Activity() {
     }
 
     private fun configurePageHeader(title: String, isHome: Boolean) {
-        currentScreen = title
         pageTitle.text = title
         accountButton.visibility = if (isHome) View.VISIBLE else View.GONE
         val menu = findViewById<Button>(R.id.menuButton)
@@ -826,6 +825,7 @@ class MainActivity : Activity() {
         projectBar.visibility = View.VISIBLE
 
         previewTitle.text = "Preview"
+        currentScreen = "EDITOR"
         configurePageHeader(currentFileName.ifBlank { "コード" }, false)
         findViewById<Button>(R.id.menuButton).setOnClickListener { handleBackNavigation() }
 
@@ -4673,6 +4673,7 @@ class MainActivity : Activity() {
         searchBar.visibility = View.GONE
         projectBar.visibility = View.GONE
 
+        currentScreen = "PROJECTS"
         configurePageHeader("プロジェクト", false)
         findViewById<Button>(R.id.menuButton).setOnClickListener { handleBackNavigation() }
 
