@@ -4258,6 +4258,7 @@ class MainActivity : Activity() {
 
     private fun showStartupScreen() {
         homeTab.visibility = View.VISIBLE
+        editorTreePanel.visibility = View.GONE
         editorContainer.visibility = View.GONE
         previewArea.visibility = View.GONE
         projectTab.visibility = View.GONE
@@ -4688,6 +4689,7 @@ class MainActivity : Activity() {
         if (fullscreen) togglePreviewFullscreen()
 
         homeTab.visibility = View.GONE
+        editorTreePanel.visibility = View.GONE
         projectTab.visibility = View.VISIBLE
         fileTab.visibility = View.GONE
         historyTab.visibility = View.GONE
@@ -4747,9 +4749,33 @@ class MainActivity : Activity() {
         highlightCode()
         lineNumbers.invalidate()
 
-        showHomeTab()
+        showProjectFiles(uri)
 
         showKStudioNotice("プロジェクトを開きました")
+    }
+
+    private fun showProjectFiles(uri: Uri) {
+        if (fullscreen) togglePreviewFullscreen()
+        folderRootUri = uri
+        currentFolderUri = DocumentsContract.buildDocumentUriUsingTree(uri, DocumentsContract.getTreeDocumentId(uri))
+        currentFolderStack.clear()
+        homeTab.visibility = View.GONE
+        projectTab.visibility = View.GONE
+        fileTab.visibility = View.VISIBLE
+        historyTab.visibility = View.GONE
+        editorContainer.visibility = View.GONE
+        editorTreePanel.visibility = View.GONE
+        previewArea.visibility = View.GONE
+        bottomHeader.visibility = View.GONE
+        searchBar.visibility = View.GONE
+        projectBar.visibility = View.GONE
+        fileBrowserPanel.visibility = View.VISIBLE
+        fileCreatePanel.visibility = View.GONE
+        currentScreen = "FILES"
+        configurePageHeader(getProjectDisplayName(uri), false)
+        fileTabBackButton.text = "←"
+        findViewById<Button>(R.id.menuButton).setOnClickListener { handleBackNavigation() }
+        renderFileBrowser()
     }
 
     private fun getFolderLastModified(uri: Uri): String {
