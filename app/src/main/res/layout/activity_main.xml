@@ -156,16 +156,34 @@
                 android:paddingStart="6dp"
                 android:paddingEnd="4dp">
 
-                <TextView
-                    android:id="@+id/editorTreeTitle"
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="42dp"
-                    android:gravity="center_vertical"
-                    android:text="ファイル構成"
-                    android:textSize="14sp"
-                    android:textStyle="bold"
-                    android:paddingStart="8dp"
-                    android:paddingEnd="4dp" />
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:id="@+id/editorTreeTitle"
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:gravity="center_vertical"
+                        android:text="ファイル構成"
+                        android:textSize="14sp"
+                        android:textStyle="bold"
+                        android:paddingStart="8dp"
+                        android:paddingEnd="4dp" />
+
+                    <Button
+                        android:id="@+id/editorTreeCloseButton"
+                        android:layout_width="38dp"
+                        android:layout_height="38dp"
+                        android:text="×"
+                        android:textSize="18sp"
+                        android:minWidth="0dp"
+                        android:background="@drawable/rounded_button" />
+
+                </LinearLayout>
 
                 <ScrollView
                     android:layout_width="match_parent"
