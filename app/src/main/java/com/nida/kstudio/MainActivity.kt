@@ -1905,11 +1905,55 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             visibility = View.GONE
             setBackgroundColor(surfaceColor())
-            setPadding(dpToPx(18), dpToPx(18), dpToPx(18), dpToPx(24))
         }
+
         val scroll = ScrollView(this)
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
+            setPadding(dpToPx(18), dpToPx(18), dpToPx(18), dpToPx(28))
+        }
+
+        fun sectionTitle(textValue: String): TextView = TextView(this).apply {
+            text = textValue
+            textSize = 18f
+            setTextColor(primaryTextColor())
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setPadding(0, dpToPx(24), 0, dpToPx(10))
+        }
+
+        fun row(title: String, detail: String, action: () -> Unit): View {
+            val item = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dpToPx(14), dpToPx(12), dpToPx(12), dpToPx(12))
+                background = roundedBackground(editorSurfaceColor(), 12)
+                setOnClickListener { action() }
+            }
+
+            val texts = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+            }
+            texts.addView(TextView(this).apply {
+                text = title
+                textSize = 15f
+                setTextColor(primaryTextColor())
+                setTypeface(null, android.graphics.Typeface.BOLD)
+            })
+            texts.addView(TextView(this).apply {
+                text = detail
+                textSize = 12f
+                setTextColor(secondaryTextColor())
+                setPadding(0, dpToPx(4), 0, 0)
+            })
+
+            item.addView(texts, LinearLayout.LayoutParams(0, dpToPx(66), 1f))
+            item.addView(TextView(this).apply {
+                text = ">"
+                textSize = 22f
+                setTextColor(secondaryTextColor())
+                gravity = Gravity.CENTER
+            }, LinearLayout.LayoutParams(dpToPx(32), dpToPx(66)))
+            return item
         }
 
         val avatar = TextView(this).apply {
@@ -1920,132 +1964,85 @@ class MainActivity : Activity() {
             setTypeface(null, android.graphics.Typeface.BOLD)
             background = roundedBackground(Color.rgb(0, 128, 96), 60)
         }
+
         content.addView(avatar, LinearLayout.LayoutParams(dpToPx(76), dpToPx(76)).apply {
             gravity = Gravity.CENTER_HORIZONTAL
-            bottomMargin = dpToPx(14)
+            bottomMargin = dpToPx(12)
         })
 
         content.addView(TextView(this).apply {
-            text = "アカウント"
-            textSize = 28f
+            text = getAccountName()
+            textSize = 21f
+            gravity = Gravity.CENTER
             setTextColor(primaryTextColor())
             setTypeface(null, android.graphics.Typeface.BOLD)
         })
+
         content.addView(TextView(this).apply {
-            text = "プロフィールとログイン情報"
-            textSize = 14f
-            setTextColor(secondaryTextColor())
-            setPadding(0, dpToPx(6), 0, dpToPx(24))
-        })
-
-        fun label(textValue: String) = TextView(this).apply {
-            text = textValue
-            textSize = 14f
-            setTextColor(primaryTextColor())
-            setTypeface(null, android.graphics.Typeface.BOLD)
-            setPadding(0, dpToPx(18), 0, dpToPx(8))
-        }
-
-        fun field(value: String, hintValue: String, password: Boolean = false): EditText {
-            return EditText(this).apply {
-                hint = hintValue
-                setText(value)
-                setSingleLine(true)
-                setPadding(dpToPx(14), dpToPx(10), dpToPx(14), dpToPx(10))
-                if (password) {
-                    inputType = android.text.InputType.TYPE_CLASS_TEXT or
-                        android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
-                }
-            }
-        }
-
-        content.addView(label("アカウントアイコン"))
-        content.addView(TextView(this).apply {
-            text = "現在は「K」を表示しています。今後、画像アイコンにも対応予定です。"
+            val email = getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+                .getString("account_email", "") ?: ""
+            text = if (email.isBlank()) "メールアドレス未設定" else email
             textSize = 13f
+            gravity = Gravity.CENTER
             setTextColor(secondaryTextColor())
-            background = roundedBackground(editorSurfaceColor(), 12)
-            setPadding(dpToPx(14), dpToPx(12), dpToPx(14), dpToPx(12))
+            setPadding(0, dpToPx(4), 0, dpToPx(8))
         })
 
-        content.addView(label("アカウント名"))
-        val nameInput = field(getAccountName(), "アカウント名")
-        content.addView(nameInput, LinearLayout.LayoutParams(-1, dpToPx(54)))
+        content.addView(row(
+            "名前を変更",
+            "KStudioで表示するアカウント名",
+        ) {
+            showAccountNameChange()
+        }, LinearLayout.LayoutParams(-1, dpToPx(66)).apply {
+            topMargin = dpToPx(12)
+        })
 
-        content.addView(label("メールアドレス"))
-        val emailInput = field(
-            getSharedPreferences("KStudio", Context.MODE_PRIVATE)
-                .getString("account_email", "") ?: "",
-            "メールアドレス"
-        )
-        emailInput.inputType = android.text.InputType.TYPE_CLASS_TEXT or
-            android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
-        content.addView(emailInput, LinearLayout.LayoutParams(-1, dpToPx(54)))
+        content.addView(sectionTitle("ログイン情報"))
 
-        content.addView(label("パスワード変更"))
-        val currentPassword = field("", "現在のパスワード", true)
-        content.addView(currentPassword, LinearLayout.LayoutParams(-1, dpToPx(54)))
+        content.addView(row(
+            "パスワードを変更",
+            "変更には現在のパスワードが必要です"
+        ) {
+            showProtectedAccountAction("パスワードを変更")
+        })
 
-        val newPassword = field("", "新しいパスワード", true)
-        content.addView(newPassword, LinearLayout.LayoutParams(-1, dpToPx(54)).apply {
+        content.addView(row(
+            "メールアドレスを変更",
+            "変更には現在のパスワードが必要です"
+        ) {
+            showProtectedAccountAction("メールアドレスを変更")
+        }, LinearLayout.LayoutParams(-1, dpToPx(66)).apply {
             topMargin = dpToPx(8)
         })
 
-        val confirmPassword = field("", "新しいパスワード（確認）", true)
-        content.addView(confirmPassword, LinearLayout.LayoutParams(-1, dpToPx(54)).apply {
+        content.addView(sectionTitle("セキュリティ"))
+
+        content.addView(row(
+            "パスキー",
+            "未設定 · パスワードなしで安全にログイン"
+        ) {
+            showKStudioMessage(
+                "パスキー",
+                "パスキーの登録画面です。サーバー側の認証機能と接続したあと、この画面から登録できます。"
+            )
+        })
+
+        content.addView(row(
+            "指紋認証",
+            "未設定 · この端末の生体認証を利用"
+        ) {
+            showKStudioMessage(
+                "指紋認証",
+                "指紋認証の設定画面です。生体認証の登録機能を接続したあと利用できます。"
+            )
+        }, LinearLayout.LayoutParams(-1, dpToPx(66)).apply {
             topMargin = dpToPx(8)
         })
 
-        content.addView(Button(this).apply {
-            text = "アカウント情報を保存"
-            textSize = 14f
-            styleKStudioButton(this)
-            setOnClickListener {
-                val name = nameInput.text.toString().trim()
-                val email = emailInput.text.toString().trim()
-                val newPass = newPassword.text.toString()
-                val confirm = confirmPassword.text.toString()
-
-                if (name.isBlank() || name.length > 40) {
-                    showKStudioMessage("アカウント", "アカウント名は1〜40文字で設定してください。")
-                    return@setOnClickListener
-                }
-                if (email.isBlank() || !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-                    showKStudioMessage("アカウント", "メールアドレスを正しく入力してください。")
-                    return@setOnClickListener
-                }
-                if (newPass.isNotEmpty() && newPass != confirm) {
-                    showKStudioMessage("アカウント", "新しいパスワードが一致していません。")
-                    return@setOnClickListener
-                }
-
-                getSharedPreferences("KStudio", Context.MODE_PRIVATE).edit()
-                    .putString("account_name", name)
-                    .putString("account_email", email)
-                    .apply()
-
-                // パスワードの実際の変更はサーバー認証実装時に接続する。
-                showKStudioMessage(
-                    "アカウント",
-                    if (newPass.isEmpty()) "プロフィール情報を保存しました。"
-                    else "プロフィールを保存しました。パスワード変更はサーバー認証実装後に反映されます。"
-                )
-                renderHomeFiles()
-            }
-        }, LinearLayout.LayoutParams(-1, dpToPx(50)).apply {
-            topMargin = dpToPx(18)
-        })
+        content.addView(sectionTitle("アカウント"))
 
         content.addView(TextView(this).apply {
-            text = "アカウント操作"
-            textSize = 18f
-            setTextColor(primaryTextColor())
-            setTypeface(null, android.graphics.Typeface.BOLD)
-            setPadding(0, dpToPx(34), 0, dpToPx(10))
-        })
-
-        content.addView(TextView(this).apply {
-            text = "KStudioのアカウント管理機能は、サーバー側の認証機能と接続して安全に運用します。"
+            text = "KStudioのアカウント認証・パスワード・パスキーは、将来のサーバー認証と接続して管理します。パスワードそのものを端末には保存しません。"
             textSize = 13f
             setTextColor(secondaryTextColor())
             background = roundedBackground(editorSurfaceColor(), 12)
@@ -2055,6 +2052,137 @@ class MainActivity : Activity() {
         scroll.addView(content, ViewGroup.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT))
         page.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         return page
+    }
+
+    private fun showAccountNameChange() {
+        val root = FrameLayout(this)
+        val scrim = View(this).apply { setBackgroundColor(Color.argb(110, 0, 0, 0)) }
+        root.addView(scrim, FrameLayout.LayoutParams(-1, -1))
+
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dpToPx(20), dpToPx(18), dpToPx(20), dpToPx(18))
+            background = roundedBackground(surfaceColor(), 16)
+        }
+
+        panel.addView(TextView(this).apply {
+            text = "名前を変更"
+            textSize = 21f
+            setTextColor(primaryTextColor())
+            setTypeface(null, android.graphics.Typeface.BOLD)
+        })
+
+        val input = EditText(this).apply {
+            hint = "アカウント名"
+            setText(getAccountName())
+            setSingleLine(true)
+            setPadding(dpToPx(12), dpToPx(10), dpToPx(12), dpToPx(10))
+        }
+        panel.addView(input, LinearLayout.LayoutParams(-1, dpToPx(52)).apply {
+            topMargin = dpToPx(14)
+        })
+
+        val save = Button(this).apply {
+            text = "保存"
+            styleKStudioButton(this)
+        }
+        panel.addView(save, LinearLayout.LayoutParams(-1, dpToPx(46)).apply {
+            topMargin = dpToPx(12)
+        })
+
+        root.addView(panel, FrameLayout.LayoutParams(
+            minOf(dpToPx(390), resources.displayMetrics.widthPixels - dpToPx(32)),
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            Gravity.CENTER
+        ))
+
+        lateinit var popup: PopupWindow
+        popup = PopupWindow(root, -1, -1, true).apply {
+            isOutsideTouchable = true
+            setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        }
+        scrim.setOnClickListener { popup.dismiss() }
+        save.setOnClickListener {
+            val name = input.text.toString().trim()
+            if (name.isBlank() || name.length > 40) {
+                showKStudioMessage("アカウント", "アカウント名は1〜40文字で設定してください。")
+                popup.dismiss()
+                return@setOnClickListener
+            }
+            getSharedPreferences("KStudio", Context.MODE_PRIVATE).edit()
+                .putString("account_name", name)
+                .apply()
+            popup.dismiss()
+            showAccountPage()
+        }
+        popup.showAtLocation(topMenuBar, Gravity.CENTER, 0, 0)
+    }
+
+    private fun showProtectedAccountAction(actionName: String) {
+        val root = FrameLayout(this)
+        val scrim = View(this).apply { setBackgroundColor(Color.argb(110, 0, 0, 0)) }
+        root.addView(scrim, FrameLayout.LayoutParams(-1, -1))
+
+        val panel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dpToPx(20), dpToPx(18), dpToPx(20), dpToPx(18))
+            background = roundedBackground(surfaceColor(), 16)
+        }
+
+        panel.addView(TextView(this).apply {
+            text = actionName
+            textSize = 21f
+            setTextColor(primaryTextColor())
+            setTypeface(null, android.graphics.Typeface.BOLD)
+        })
+        panel.addView(TextView(this).apply {
+            text = "本人確認のため、現在のパスワードを入力してください。"
+            textSize = 13f
+            setTextColor(secondaryTextColor())
+            setPadding(0, dpToPx(8), 0, dpToPx(12))
+        })
+
+        val password = EditText(this).apply {
+            hint = "現在のパスワード"
+            setSingleLine(true)
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setPadding(dpToPx(12), dpToPx(10), dpToPx(12), dpToPx(10))
+        }
+        panel.addView(password, LinearLayout.LayoutParams(-1, dpToPx(52)))
+
+        val next = Button(this).apply {
+            text = "本人確認"
+            styleKStudioButton(this)
+        }
+        panel.addView(next, LinearLayout.LayoutParams(-1, dpToPx(46)).apply {
+            topMargin = dpToPx(12)
+        })
+
+        root.addView(panel, FrameLayout.LayoutParams(
+            minOf(dpToPx(390), resources.displayMetrics.widthPixels - dpToPx(32)),
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            Gravity.CENTER
+        ))
+
+        lateinit var popup: PopupWindow
+        popup = PopupWindow(root, -1, -1, true).apply {
+            isOutsideTouchable = true
+            setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+        }
+        scrim.setOnClickListener { popup.dismiss() }
+        next.setOnClickListener {
+            if (password.text.toString().isBlank()) {
+                showKStudioMessage("本人確認", "現在のパスワードを入力してください。")
+                return@setOnClickListener
+            }
+            popup.dismiss()
+            showKStudioMessage(
+                actionName,
+                "本人確認画面は用意できています。実際の認証・変更処理はサーバー認証実装後に接続します。"
+            )
+        }
+        popup.showAtLocation(topMenuBar, Gravity.CENTER, 0, 0)
     }
 
     private fun showAccountPage() {
@@ -2070,7 +2198,7 @@ class MainActivity : Activity() {
         searchBar.visibility = View.GONE
         projectBar.visibility = View.GONE
         currentScreen = "ACCOUNT"
-        configurePageHeader("アカウント", false)
+        configurePageHeader("アカウントセンター", false)
         findViewById<Button>(R.id.menuButton).setOnClickListener { showHomeTab() }
     }
 
