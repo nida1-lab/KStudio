@@ -664,16 +664,8 @@ class MainActivity : Activity() {
 
         updatePreview()
 
-        if (
-            savedInstanceState == null &&
-            folderRootUri == null
-        ) {
-            openFolderPicker()
-        } else if (
-            folderRootUri == null
-        ) {
-            showStartupScreen()
-        }
+        // Always start at HOME. Folder permission is requested only when a project action needs it.
+        showStartupScreen()
     }
 
     @Suppress("DEPRECATION")
@@ -1946,13 +1938,19 @@ class MainActivity : Activity() {
                 setPadding(0, dpToPx(4), 0, 0)
             })
 
-            item.addView(texts, LinearLayout.LayoutParams(0, dpToPx(66), 1f))
+            item.addView(
+                texts,
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    minimumHeight = dpToPx(52)
+                }
+            )
             item.addView(TextView(this).apply {
                 text = ">"
-                textSize = 22f
+                textSize = 20f
+                includeFontPadding = true
                 setTextColor(secondaryTextColor())
                 gravity = Gravity.CENTER
-            }, LinearLayout.LayoutParams(dpToPx(32), dpToPx(66)))
+            }, LinearLayout.LayoutParams(dpToPx(32), dpToPx(52)))
             return item
         }
 
@@ -1993,7 +1991,7 @@ class MainActivity : Activity() {
             "KStudioで表示するアカウント名",
         ) {
             showAccountNameChange()
-        }, LinearLayout.LayoutParams(-1, dpToPx(66)).apply {
+        }, LinearLayout.LayoutParams(-1, dpToPx(76)).apply {
             topMargin = dpToPx(12)
         })
 
@@ -2011,7 +2009,7 @@ class MainActivity : Activity() {
             "変更には現在のパスワードが必要です"
         ) {
             showProtectedAccountAction("メールアドレスを変更")
-        }, LinearLayout.LayoutParams(-1, dpToPx(66)).apply {
+        }, LinearLayout.LayoutParams(-1, dpToPx(76)).apply {
             topMargin = dpToPx(8)
         })
 
