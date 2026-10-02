@@ -50,6 +50,8 @@ class MainActivity : Activity() {
     private lateinit var projectBar: View
     private lateinit var searchBar: View
     private lateinit var editorContainer: View
+    private lateinit var editorTreePanel: View
+    private lateinit var editorTreeList: LinearLayout
     private lateinit var bottomHeader: View
     private lateinit var previewHeader: View
     private lateinit var previewArea: View
@@ -842,6 +844,8 @@ class MainActivity : Activity() {
     private fun showEditorScreen() {
         if (::saveCommitPanel.isInitialized) saveCommitPanel.visibility = View.GONE
         homeTab.visibility = View.GONE
+        editorTreePanel.visibility = View.VISIBLE
+        renderEditorFileTree()
         editorContainer.visibility = View.VISIBLE
         previewArea.visibility = View.VISIBLE
         projectTab.visibility = View.GONE
@@ -1264,10 +1268,23 @@ class MainActivity : Activity() {
             )
         }
 
+        var closing = false
+        fun animatePanel(from: Float, to: Float, onEnd: (() -> Unit)? = null) {
+            val start = System.currentTimeMillis()
+            val duration = 180L
+            fun step() {
+                val progress = ((System.currentTimeMillis() - start).toFloat() / duration).coerceIn(0f, 1f)
+                val eased = 1f - (1f - progress) * (1f - progress)
+                panel.translationX = from + (to - from) * eased
+                scrim.alpha = if (to == 0f) progress else 1f - progress
+                if (progress < 1f) panel.postDelayed({ step() }, 16L) else onEnd?.invoke()
+            }
+            step()
+        }
         fun dismissDrawer() {
-            panel.translationX = -panelWidth.toFloat()
-            scrim.alpha = 0f
-            drawer.dismiss()
+            if (closing) return
+            closing = true
+            animatePanel(0f, -panelWidth.toFloat()) { drawer.dismiss() }
         }
 
         scrim.setOnClickListener { dismissDrawer() }
@@ -1299,9 +1316,10 @@ class MainActivity : Activity() {
             0
         )
 
-        panel.translationX = 0f
+        panel.translationX = -panelWidth.toFloat()
         panel.alpha = 1f
-        scrim.alpha = 1f
+        scrim.alpha = 0f
+        panel.post { animatePanel(-panelWidth.toFloat(), 0f) }
     }
 
     private fun showSettingsDialog() {
@@ -2419,6 +2437,7 @@ class MainActivity : Activity() {
         homeTab.visibility = View.GONE
         editorContainer.visibility = View.GONE
         previewArea.visibility = View.GONE
+        editorTreePanel.visibility = View.GONE
         bottomHeader.visibility = View.GONE
         searchBar.visibility = View.GONE
         projectBar.visibility = View.GONE
@@ -2527,7 +2546,7 @@ class MainActivity : Activity() {
             val button =
                 Button(this).apply {
 
-                    text = entry.name
+                    text = entry.name + "   >"
                     setSimpleIcon(
                         this,
                         if (entry.isDirectory) {
@@ -3378,6 +3397,67 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun renderEditorFileTree() {
+        editorTreeList.removeAllViews()
+        val root = folderRootUri ?: return
+        val rootDoc = DocumentsContract.buildDocumentUriUsingTree(
+            root,
+            DocumentsContract.getTreeDocumentId(root)
+        )
+        addEditorTreeFolder(rootDoc, 0, true)
+    }
+
+    private fun addEditorTreeFolder(folderUri: Uri, depth: Int, isRoot: Boolean = false) {
+        val entries = queryFolder(folderUri).sortedWith(compareByDescending<ManagedEntry> { it.isDirectory }.thenBy { it.name.lowercase(Locale.getDefault()) })
+        if (isRoot) {
+            editorTreeList.addView(TextView(this).apply {
+                text = getProjectDisplayName(folderRootUri ?: folderUri)
+                textSize = 14f
+                setTextColor(primaryTextColor())
+                setTypeface(null, android.graphics.Typeface.BOLD)
+                setPadding(dpToPx(6), dpToPx(6), dpToPx(4), dpToPx(6))
+            })
+        }
+        entries.forEach { entry ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dpToPx(4 + depth * 12), 0, 0, 0)
+            }
+            val open = TextView(this).apply {
+                text = if (entry.isDirectory) entry.name else entry.name
+                textSize = 13f
+                setTextColor(primaryTextColor())
+                setTypeface(null, if (entry.isDirectory) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
+                setSingleLine(true)
+                ellipsize = android.text.TextUtils.TruncateAt.END
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, dpToPx(5), dpToPx(4), dpToPx(5))
+                setSimpleIcon(this, if (entry.isDirectory) R.drawable.ic_folder_simple else R.drawable.ic_file_simple)
+                setOnClickListener {
+                    if (entry.isDirectory) {
+                        addEditorTreeFolder(entry.uri, depth + 1)
+                    } else if (isSupportedTextFile(entry.name, entry.mimeType)) {
+                        openManagedFile(entry.uri, entry.name)
+                    } else {
+                        showKStudioNotice("このファイルはKStudioで編集できません")
+                    }
+                }
+            }
+            row.addView(open, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            val more = Button(this).apply {
+                text = "︙"
+                textSize = 17f
+                minWidth = 0
+                setPadding(0, 0, 0, 0)
+                styleKStudioButton(this)
+                setOnClickListener { showFileActions(entry) { renderEditorFileTree() } }
+            }
+            row.addView(more, LinearLayout.LayoutParams(dpToPx(38), dpToPx(38)))
+            editorTreeList.addView(row)
+        }
+    }
+
     private fun showFileActions(
         entry: ManagedEntry,
         refresh: () -> Unit
@@ -3385,7 +3465,7 @@ class MainActivity : Activity() {
         val options = if (entry.isDirectory) {
             listOf("名前変更", "削除", "キャンセル")
         } else {
-            listOf("内容をコピー", "クリップボードで置換", "名前変更", "削除", "キャンセル")
+            listOf("編集", "内容をコピー", "クリップボードで置換", "名前変更", "削除", "キャンセル")
         }
 
         showKStudioChoiceDialog(entry.name, options) { which ->
@@ -3396,10 +3476,11 @@ class MainActivity : Activity() {
                 }
             } else {
                 when (which) {
-                    0 -> copyFileContent(entry)
-                    1 -> replaceFileFromClipboard(entry, refresh)
-                    2 -> askRename(entry, refresh)
-                    3 -> askDelete(entry, refresh)
+                    0 -> openManagedFile(entry.uri, entry.name)
+                    1 -> copyFileContent(entry)
+                    2 -> replaceFileFromClipboard(entry, refresh)
+                    3 -> askRename(entry, refresh)
+                    4 -> askDelete(entry, refresh)
                 }
             }
         }
