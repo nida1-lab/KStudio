@@ -179,6 +179,12 @@ class MainActivity : Activity() {
         editorContainer =
             findViewById(R.id.editorContainer)
 
+        editorTreePanel =
+            findViewById(R.id.editorTreePanel)
+
+        editorTreeList =
+            findViewById(R.id.editorTreeList)
+
         bottomHeader =
             findViewById(R.id.bottomHeader)
 
