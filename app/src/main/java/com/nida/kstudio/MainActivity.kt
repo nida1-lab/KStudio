@@ -1908,7 +1908,22 @@ class MainActivity : Activity() {
             setPadding(dpToPx(18), dpToPx(18), dpToPx(18), dpToPx(24))
         }
         val scroll = ScrollView(this)
-        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+
+        val avatar = TextView(this).apply {
+            text = "K"
+            textSize = 30f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            background = roundedBackground(primaryAccentColor(), 60)
+        }
+        content.addView(avatar, LinearLayout.LayoutParams(dpToPx(76), dpToPx(76)).apply {
+            gravity = Gravity.CENTER_HORIZONTAL
+            bottomMargin = dpToPx(14)
+        })
 
         content.addView(TextView(this).apply {
             text = "アカウント"
@@ -1917,58 +1932,121 @@ class MainActivity : Activity() {
             setTypeface(null, android.graphics.Typeface.BOLD)
         })
         content.addView(TextView(this).apply {
-            text = "KStudioで表示するアカウント情報を設定します。"
+            text = "プロフィールとログイン情報"
             textSize = 14f
             setTextColor(secondaryTextColor())
-            setPadding(0, dpToPx(8), 0, dpToPx(24))
+            setPadding(0, dpToPx(6), 0, dpToPx(24))
         })
-        content.addView(TextView(this).apply {
-            text = "アカウント名"
+
+        fun label(textValue: String) = TextView(this).apply {
+            text = textValue
             textSize = 14f
             setTextColor(primaryTextColor())
             setTypeface(null, android.graphics.Typeface.BOLD)
-        })
-        val input = EditText(this).apply {
-            hint = "アカウント名"
-            setSingleLine(true)
-            setText(getAccountName())
-            setPadding(dpToPx(14), dpToPx(10), dpToPx(14), dpToPx(10))
+            setPadding(0, dpToPx(18), 0, dpToPx(8))
         }
-        content.addView(input, LinearLayout.LayoutParams(-1, dpToPx(54)).apply { topMargin = dpToPx(8) })
+
+        fun field(value: String, hintValue: String, password: Boolean = false): EditText {
+            return EditText(this).apply {
+                hint = hintValue
+                setText(value)
+                setSingleLine(true)
+                setPadding(dpToPx(14), dpToPx(10), dpToPx(14), dpToPx(10))
+                if (password) {
+                    inputType = android.text.InputType.TYPE_CLASS_TEXT or
+                        android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+                }
+            }
+        }
+
+        content.addView(label("アカウントアイコン"))
         content.addView(TextView(this).apply {
-            text = "コミュニティ、@メンション、共同コーディングで使用されます。"
+            text = "現在は「K」を表示しています。今後、画像アイコンにも対応予定です。"
             textSize = 13f
             setTextColor(secondaryTextColor())
-            setPadding(0, dpToPx(8), 0, dpToPx(24))
+            background = roundedBackground(editorSurfaceColor(), 12)
+            setPadding(dpToPx(14), dpToPx(12), dpToPx(14), dpToPx(12))
         })
+
+        content.addView(label("アカウント名"))
+        val nameInput = field(getAccountName(), "アカウント名")
+        content.addView(nameInput, LinearLayout.LayoutParams(-1, dpToPx(54)))
+
+        content.addView(label("メールアドレス"))
+        val emailInput = field(
+            getSharedPreferences("KStudio", Context.MODE_PRIVATE)
+                .getString("account_email", "") ?: "",
+            "メールアドレス"
+        )
+        emailInput.inputType = android.text.InputType.TYPE_CLASS_TEXT or
+            android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+        content.addView(emailInput, LinearLayout.LayoutParams(-1, dpToPx(54)))
+
+        content.addView(label("パスワード変更"))
+        val currentPassword = field("", "現在のパスワード", true)
+        content.addView(currentPassword, LinearLayout.LayoutParams(-1, dpToPx(54)))
+
+        val newPassword = field("", "新しいパスワード", true)
+        content.addView(newPassword, LinearLayout.LayoutParams(-1, dpToPx(54)).apply {
+            topMargin = dpToPx(8)
+        })
+
+        val confirmPassword = field("", "新しいパスワード（確認）", true)
+        content.addView(confirmPassword, LinearLayout.LayoutParams(-1, dpToPx(54)).apply {
+            topMargin = dpToPx(8)
+        })
+
         content.addView(Button(this).apply {
             text = "アカウント情報を保存"
             textSize = 14f
             styleKStudioButton(this)
             setOnClickListener {
-                val name = input.text.toString().trim()
+                val name = nameInput.text.toString().trim()
+                val email = emailInput.text.toString().trim()
+                val newPass = newPassword.text.toString()
+                val confirm = confirmPassword.text.toString()
+
                 if (name.isBlank() || name.length > 40) {
                     showKStudioMessage("アカウント", "アカウント名は1〜40文字で設定してください。")
                     return@setOnClickListener
                 }
+                if (email.isBlank() || !android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                    showKStudioMessage("アカウント", "メールアドレスを正しく入力してください。")
+                    return@setOnClickListener
+                }
+                if (newPass.isNotEmpty() && newPass != confirm) {
+                    showKStudioMessage("アカウント", "新しいパスワードが一致していません。")
+                    return@setOnClickListener
+                }
+
                 getSharedPreferences("KStudio", Context.MODE_PRIVATE).edit()
                     .putString("account_name", name)
+                    .putString("account_email", email)
                     .apply()
-                showKStudioMessage("アカウント", "保存しました。")
+
+                // パスワードの実際の変更はサーバー認証実装時に接続する。
+                showKStudioMessage(
+                    "アカウント",
+                    if (newPass.isEmpty()) "プロフィール情報を保存しました。"
+                    else "プロフィールを保存しました。パスワード変更はサーバー認証実装後に反映されます。"
+                )
                 renderHomeFiles()
             }
-        }, LinearLayout.LayoutParams(-1, dpToPx(50)))
+        }, LinearLayout.LayoutParams(-1, dpToPx(50)).apply {
+            topMargin = dpToPx(18)
+        })
 
         content.addView(TextView(this).apply {
-            text = "現在のアカウント"
+            text = "アカウント操作"
             textSize = 18f
             setTextColor(primaryTextColor())
             setTypeface(null, android.graphics.Typeface.BOLD)
-            setPadding(0, dpToPx(32), 0, dpToPx(10))
+            setPadding(0, dpToPx(34), 0, dpToPx(10))
         })
+
         content.addView(TextView(this).apply {
-            text = "現在のアカウント名\n" + if (getAccountName().isBlank()) "未設定" else getAccountName()
-            textSize = 14f
+            text = "KStudioのアカウント管理機能は、サーバー側の認証機能と接続して安全に運用します。"
+            textSize = 13f
             setTextColor(secondaryTextColor())
             background = roundedBackground(editorSurfaceColor(), 12)
             setPadding(dpToPx(14), dpToPx(14), dpToPx(14), dpToPx(14))
