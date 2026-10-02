@@ -4528,11 +4528,21 @@ class MainActivity : Activity() {
 
     private fun applySystemTheme() {
 
-        findViewById<View>(
-            android.R.id.content
-        ).setBackgroundColor(
-            surfaceColor()
-        )
+        val surface = surfaceColor()
+        val content = findViewById<ViewGroup>(android.R.id.content)
+        content.setBackgroundColor(surface)
+        if (content.childCount > 0) {
+            content.getChildAt(0).setBackgroundColor(surface)
+        }
+
+        searchBar.background = roundedBackground(surface, 12)
+        editorContainer.background = roundedBackground(surface, 12)
+        previewArea.background = roundedBackground(surface, 12)
+        homeTab.background = roundedBackground(surface, 12)
+        projectTab.background = roundedBackground(surface, 12)
+        fileTab.background = roundedBackground(surface, 12)
+        historyTab.background = roundedBackground(surface, 12)
+        editorTreePanel.background = roundedBackground(editorSurfaceColor(), 12)
 
         codeEditor.setTextColor(
             primaryTextColor()
