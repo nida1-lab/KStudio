@@ -1918,7 +1918,7 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER
             setTextColor(Color.WHITE)
             setTypeface(null, android.graphics.Typeface.BOLD)
-            background = roundedBackground(primaryAccentColor(), 60)
+            background = roundedBackground(Color.rgb(0, 128, 96), 60)
         }
         content.addView(avatar, LinearLayout.LayoutParams(dpToPx(76), dpToPx(76)).apply {
             gravity = Gravity.CENTER_HORIZONTAL
