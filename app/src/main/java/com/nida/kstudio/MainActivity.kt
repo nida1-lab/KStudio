@@ -1089,7 +1089,7 @@ class MainActivity : Activity() {
         saveCommitPanel.addView(header)
 
         val divider = View(this).apply {
-            setBackgroundColor(if (isDarkMode()) Color.rgb(70, 70, 74) else Color.rgb(220, 224, 228))
+            setBackgroundColor(if (isDarkMode()) Color.rgb(70, 70, 74) else Color.WHITE)
         }
         saveCommitPanel.addView(
             divider,
@@ -2561,18 +2561,39 @@ class MainActivity : Activity() {
             )
         } catch (_: Exception) {}
 
-        pendingProjectName?.let { name ->
-            projectName = name
-            getSharedPreferences("KStudio", Context.MODE_PRIVATE).edit()
-                .putString("projectName", name)
-                .apply()
-            pendingProjectName = null
-        }
+        val projectUri = pendingProjectName?.let { name ->
+            try {
+                val parentDocument = DocumentsContract.buildDocumentUriUsingTree(
+                    uri,
+                    DocumentsContract.getTreeDocumentId(uri)
+                )
+                val created = DocumentsContract.createDocument(
+                    contentResolver,
+                    parentDocument,
+                    DocumentsContract.Document.MIME_TYPE_DIR,
+                    name
+                ) ?: throw IllegalStateException("プロジェクトフォルダを作成できませんでした")
+                val treeUri = DocumentsContract.buildTreeDocumentUri(
+                    created.authority ?: uri.authority,
+                    DocumentsContract.getDocumentId(created)
+                )
+                projectName = name
+                getSharedPreferences("KStudio", Context.MODE_PRIVATE).edit()
+                    .putString("projectName", name)
+                    .apply()
+                pendingProjectName = null
+                treeUri
+            } catch (e: Exception) {
+                pendingProjectName = null
+                showKStudioMessage("新しいプロジェクト", "作成に失敗しました: " + (e.message ?: "unknown"))
+                return
+            }
+        } ?: uri
 
-        folderRootUri = uri
+        folderRootUri = projectUri
         currentFolderUri = DocumentsContract.buildDocumentUriUsingTree(
-            uri,
-            DocumentsContract.getTreeDocumentId(uri)
+            projectUri,
+            DocumentsContract.getTreeDocumentId(projectUri)
         )
         currentFolderStack.clear()
         currentFileUri = null
