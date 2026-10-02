@@ -99,6 +99,7 @@ class MainActivity : Activity() {
     private var searchSuggestionsPopup: PopupWindow? = null
     private lateinit var fileCreateHiddenButton: Button
     private var fileCreateHidden = false
+    private var pendingProjectName: String? = null
 
     private data class ManagedEntry(
         val uri: Uri,
@@ -2560,6 +2561,14 @@ class MainActivity : Activity() {
             )
         } catch (_: Exception) {}
 
+        pendingProjectName?.let { name ->
+            projectName = name
+            getSharedPreferences("KStudio", Context.MODE_PRIVATE).edit()
+                .putString("projectName", name)
+                .apply()
+            pendingProjectName = null
+        }
+
         folderRootUri = uri
         currentFolderUri = DocumentsContract.buildDocumentUriUsingTree(
             uri,
@@ -4493,7 +4502,7 @@ class MainActivity : Activity() {
         if (isDarkMode()) {
             Color.LTGRAY
         } else {
-            Color.DKGRAY
+            Color.BLACK
         }
 
     private fun applySystemTheme() {
@@ -4548,7 +4557,7 @@ class MainActivity : Activity() {
         styleButtonsInView(findViewById(android.R.id.content))
         accountButton.background = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
-            setColor(if (isDarkMode()) Color.rgb(48, 48, 52) else Color.rgb(236, 238, 242))
+            setColor(if (isDarkMode()) Color.rgb(48, 48, 52) else Color.WHITE)
         }
     }
 
@@ -4653,7 +4662,7 @@ class MainActivity : Activity() {
             setPadding(0, dpToPx(12), 0, dpToPx(16))
         })
 
-        addHomeSection("プロジェクト", "すべて表示", { showProjects() }, buildHomeProjectSection())
+        addHomeSection("プロジェクト", "すべて表示", { showProjects() }, buildHomeProjectSection(), { showCreateProject() })
         addHomeSection("履歴", "すべて表示", { showHistory() }, buildHomeHistorySection())
         addHomeSection(
             "コミュニティ",
@@ -4708,7 +4717,8 @@ class MainActivity : Activity() {
         title: String,
         actionText: String,
         action: () -> Unit,
-        content: View
+        content: View,
+        plusAction: (() -> Unit)? = null
     ) {
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -4723,17 +4733,24 @@ class MainActivity : Activity() {
             },
             LinearLayout.LayoutParams(0, dpToPx(46), 1f)
         )
-        header.addView(
-            Button(this).apply {
-                text = actionText
-                textSize = 13f
+        plusAction?.let { createAction ->
+            header.addView(Button(this).apply {
+                text = "＋"
+                textSize = 20f
                 styleKStudioButton(this)
-                setOnClickListener { action() }
-            },
-            LinearLayout.LayoutParams(dpToPx(92), dpToPx(44)).apply {
-                marginStart = dpToPx(12)
-            }
-        )
+                setOnClickListener { createAction() }
+            }, LinearLayout.LayoutParams(dpToPx(48), dpToPx(44)).apply {
+                marginStart = dpToPx(8)
+            })
+        }
+        header.addView(Button(this).apply {
+            text = actionText
+            textSize = 13f
+            styleKStudioButton(this)
+            setOnClickListener { action() }
+        }, LinearLayout.LayoutParams(dpToPx(92), dpToPx(44)).apply {
+            marginStart = dpToPx(8)
+        })
         homeFileList.addView(header)
         homeFileList.addView(content)
         homeFileList.addView(
@@ -4743,6 +4760,28 @@ class MainActivity : Activity() {
                 bottomMargin = dpToPx(16)
             }
         )
+    }
+
+    private fun showCreateProject() {
+        showKStudioInputDialog(
+            "新しいプロジェクト",
+            "プロジェクト名を入力して、保存先フォルダを選択してください。",
+            "プロジェクト名",
+            "",
+            "次へ"
+        ) { rawName ->
+            val name = rawName.trim()
+            if (name.isEmpty() || name.length > 60) {
+                showKStudioMessage("新しいプロジェクト", "プロジェクト名は1〜60文字で入力してください。")
+                return@showKStudioInputDialog
+            }
+            if (validatePathSegment(name, "プロジェクト名") != null) {
+                showKStudioMessage("新しいプロジェクト", "使用できない文字が含まれています。")
+                return@showKStudioInputDialog
+            }
+            pendingProjectName = name
+            openFolderPicker()
+        }
     }
 
     private fun buildHomeProjectSection(): View {
