@@ -4466,21 +4466,21 @@ class MainActivity : Activity() {
         if (isDarkMode()) {
             Color.rgb(20, 20, 22)
         } else {
-            Color.rgb(245, 245, 245)
+            Color.WHITE
         }
 
     private fun lineNumberSurfaceColor(): Int =
         if (isDarkMode()) {
             Color.rgb(36, 36, 38)
         } else {
-            Color.rgb(238, 238, 238)
+            Color.WHITE
         }
 
     private fun previewSurfaceColor(): Int =
         if (isDarkMode()) {
             Color.rgb(24, 24, 26)
         } else {
-            Color.rgb(250, 250, 250)
+            Color.WHITE
         }
 
     private fun primaryTextColor(): Int =
@@ -5857,14 +5857,14 @@ class MainActivity : Activity() {
 
     private fun styleKStudioButton(button: Button) {
         button.setAllCaps(false)
-        val fill = if (isDarkMode()) Color.rgb(48, 48, 52) else Color.rgb(236, 238, 242)
+        val fill = if (isDarkMode()) Color.rgb(48, 48, 52) else Color.WHITE
         button.setTextColor(primaryTextColor())
         button.background = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
             setColor(fill)
             setStroke(
                 dpToPx(1),
-                if (isDarkMode()) Color.rgb(78, 78, 84) else Color.rgb(214, 216, 220)
+                if (isDarkMode()) Color.rgb(78, 78, 84) else Color.rgb(210, 210, 210)
             )
             cornerRadius = dpToPx(10).toFloat()
         }
