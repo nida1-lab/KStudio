@@ -1938,11 +1938,10 @@ class MainActivity : Activity() {
                 setPadding(0, dpToPx(4), 0, 0)
             })
 
+            texts.minimumHeight = dpToPx(52)
             item.addView(
                 texts,
-                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
-                    minimumHeight = dpToPx(52)
-                }
+                LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
             )
             item.addView(TextView(this).apply {
                 text = ">"
