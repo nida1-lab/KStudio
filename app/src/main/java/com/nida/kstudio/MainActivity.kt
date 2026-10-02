@@ -52,6 +52,8 @@ class MainActivity : Activity() {
     private lateinit var editorContainer: View
     private lateinit var editorTreePanel: View
     private lateinit var editorTreeList: LinearLayout
+    private lateinit var editorTreeCloseButton: Button
+    private lateinit var accountTab: View
     private lateinit var bottomHeader: View
     private lateinit var previewHeader: View
     private lateinit var previewArea: View
@@ -134,6 +136,7 @@ class MainActivity : Activity() {
     private var currentFileUri: Uri? = null
     private var currentFileName = "新規ファイル"
     private val currentFolderStack = java.util.ArrayList<Uri>()
+    private val expandedEditorFolders = mutableSetOf<String>()
 
     private companion object {
         const val REQUEST_UPLOAD_FILE = 4101
@@ -187,6 +190,17 @@ class MainActivity : Activity() {
 
         bottomHeader =
             findViewById(R.id.bottomHeader)
+
+        editorTreeCloseButton = findViewById(R.id.editorTreeCloseButton)
+        editorTreeCloseButton.setOnClickListener {
+            editorTreePanel.visibility = View.GONE
+        }
+
+        accountTab = createAccountPage()
+        (bottomHeader.parent as ViewGroup).addView(
+            accountTab,
+            (bottomHeader.parent as ViewGroup).indexOfChild(bottomHeader)
+        )
 
         previewHeader =
             findViewById(R.id.previewHeader)
@@ -533,7 +547,7 @@ class MainActivity : Activity() {
 
         configurePageHeader("HOME", true)
         menuButton.setOnClickListener { showMainMenu(menuButton) }
-        accountButton.setOnClickListener { showAccountDialog() }
+        accountButton.setOnClickListener { showAccountPage() }
 
         swapButton.setOnClickListener {
             swapEditorAndPreview()
@@ -701,7 +715,7 @@ class MainActivity : Activity() {
                     showHomeTab()
                 }
             }
-            "PROJECTS", "HISTORY" -> showHomeTab()
+            "PROJECTS", "HISTORY", "ACCOUNT" -> showHomeTab()
             "FILES" -> {
                 when {
                     fileCreatePanel.visibility == View.VISIBLE -> showFileBrowserTab()
@@ -850,6 +864,7 @@ class MainActivity : Activity() {
     private fun showEditorScreen() {
         if (::saveCommitPanel.isInitialized) saveCommitPanel.visibility = View.GONE
         homeTab.visibility = View.GONE
+        accountTab.visibility = View.GONE
         editorTreePanel.visibility = View.VISIBLE
         renderEditorFileTree()
         editorContainer.visibility = View.VISIBLE
@@ -1885,6 +1900,102 @@ class MainActivity : Activity() {
         scrim.setOnClickListener { popup.dismiss() }
         popup.showAtLocation(topMenuBar, Gravity.CENTER, 0, 0)
     }
+    private fun createAccountPage(): View {
+        val page = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            setBackgroundColor(surfaceColor())
+            setPadding(dpToPx(18), dpToPx(18), dpToPx(18), dpToPx(24))
+        }
+        val scroll = ScrollView(this)
+        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+
+        content.addView(TextView(this).apply {
+            text = "アカウント"
+            textSize = 28f
+            setTextColor(primaryTextColor())
+            setTypeface(null, android.graphics.Typeface.BOLD)
+        })
+        content.addView(TextView(this).apply {
+            text = "KStudioで表示するアカウント情報を設定します。"
+            textSize = 14f
+            setTextColor(secondaryTextColor())
+            setPadding(0, dpToPx(8), 0, dpToPx(24))
+        })
+        content.addView(TextView(this).apply {
+            text = "アカウント名"
+            textSize = 14f
+            setTextColor(primaryTextColor())
+            setTypeface(null, android.graphics.Typeface.BOLD)
+        })
+        val input = EditText(this).apply {
+            hint = "アカウント名"
+            setSingleLine(true)
+            setText(getAccountName())
+            setPadding(dpToPx(14), dpToPx(10), dpToPx(14), dpToPx(10))
+        }
+        content.addView(input, LinearLayout.LayoutParams(-1, dpToPx(54)).apply { topMargin = dpToPx(8) })
+        content.addView(TextView(this).apply {
+            text = "コミュニティ、@メンション、共同コーディングで使用されます。"
+            textSize = 13f
+            setTextColor(secondaryTextColor())
+            setPadding(0, dpToPx(8), 0, dpToPx(24))
+        })
+        content.addView(Button(this).apply {
+            text = "アカウント情報を保存"
+            textSize = 14f
+            styleKStudioButton(this)
+            setOnClickListener {
+                val name = input.text.toString().trim()
+                if (name.isBlank() || name.length > 40) {
+                    showKStudioMessage("アカウント", "アカウント名は1〜40文字で設定してください。")
+                    return@setOnClickListener
+                }
+                getSharedPreferences("KStudio", Context.MODE_PRIVATE).edit()
+                    .putString("account_name", name)
+                    .apply()
+                showKStudioMessage("アカウント", "保存しました。")
+                renderHomeFiles()
+            }
+        }, LinearLayout.LayoutParams(-1, dpToPx(50)))
+
+        content.addView(TextView(this).apply {
+            text = "現在のアカウント"
+            textSize = 18f
+            setTextColor(primaryTextColor())
+            setTypeface(null, android.graphics.Typeface.BOLD)
+            setPadding(0, dpToPx(32), 0, dpToPx(10))
+        })
+        content.addView(TextView(this).apply {
+            text = "現在のアカウント名\n" + if (getAccountName().isBlank()) "未設定" else getAccountName()
+            textSize = 14f
+            setTextColor(secondaryTextColor())
+            background = roundedBackground(editorSurfaceColor(), 12)
+            setPadding(dpToPx(14), dpToPx(14), dpToPx(14), dpToPx(14))
+        })
+
+        scroll.addView(content, ViewGroup.LayoutParams(-1, ViewGroup.LayoutParams.WRAP_CONTENT))
+        page.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        return page
+    }
+
+    private fun showAccountPage() {
+        homeTab.visibility = View.GONE
+        accountTab.visibility = View.VISIBLE
+        editorContainer.visibility = View.GONE
+        editorTreePanel.visibility = View.GONE
+        previewArea.visibility = View.GONE
+        projectTab.visibility = View.GONE
+        fileTab.visibility = View.GONE
+        historyTab.visibility = View.GONE
+        bottomHeader.visibility = View.GONE
+        searchBar.visibility = View.GONE
+        projectBar.visibility = View.GONE
+        currentScreen = "ACCOUNT"
+        configurePageHeader("アカウント", false)
+        findViewById<Button>(R.id.menuButton).setOnClickListener { showHomeTab() }
+    }
+
     private fun showAccountDialog() {
         val root = FrameLayout(this)
         val scrim = View(this).apply { setBackgroundColor(Color.argb(110, 0, 0, 0)) }
@@ -3410,11 +3521,21 @@ class MainActivity : Activity() {
             root,
             DocumentsContract.getTreeDocumentId(root)
         )
+        expandedEditorFolders.add(rootDoc.toString())
         addEditorTreeFolder(rootDoc, 0, true)
     }
 
-    private fun addEditorTreeFolder(folderUri: Uri, depth: Int, isRoot: Boolean = false) {
-        val entries = queryFolder(folderUri).sortedWith(compareByDescending<ManagedEntry> { it.isDirectory }.thenBy { it.name.lowercase(Locale.getDefault()) })
+    private fun addEditorTreeFolder(
+        folderUri: Uri,
+        depth: Int,
+        isRoot: Boolean = false
+    ) {
+        val entries = queryFolder(folderUri)
+            .sortedWith(
+                compareByDescending<ManagedEntry> { it.isDirectory }
+                    .thenBy { it.name.lowercase(Locale.getDefault()) }
+            )
+
         if (isRoot) {
             editorTreeList.addView(TextView(this).apply {
                 text = getProjectDisplayName(folderRootUri ?: folderUri)
@@ -3424,14 +3545,21 @@ class MainActivity : Activity() {
                 setPadding(dpToPx(6), dpToPx(6), dpToPx(4), dpToPx(6))
             })
         }
+
         entries.forEach { entry ->
             val row = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(dpToPx(4 + depth * 12), 0, 0, 0)
             }
+
             val open = TextView(this).apply {
-                text = if (entry.isDirectory) entry.name else entry.name
+                text = if (entry.isDirectory) {
+                    if (expandedEditorFolders.contains(entry.uri.toString())) "⌄ ${entry.name}"
+                    else "› ${entry.name}"
+                } else {
+                    entry.name
+                }
                 textSize = 13f
                 setTextColor(primaryTextColor())
                 setTypeface(null, if (entry.isDirectory) android.graphics.Typeface.BOLD else android.graphics.Typeface.NORMAL)
@@ -3442,7 +3570,10 @@ class MainActivity : Activity() {
                 setSimpleIcon(this, if (entry.isDirectory) R.drawable.ic_folder_simple else R.drawable.ic_file_simple)
                 setOnClickListener {
                     if (entry.isDirectory) {
-                        addEditorTreeFolder(entry.uri, depth + 1)
+                        val key = entry.uri.toString()
+                        if (expandedEditorFolders.contains(key)) expandedEditorFolders.remove(key)
+                        else expandedEditorFolders.add(key)
+                        renderEditorFileTree()
                     } else if (isSupportedTextFile(entry.name, entry.mimeType)) {
                         openManagedFile(entry.uri, entry.name)
                     } else {
@@ -3451,6 +3582,7 @@ class MainActivity : Activity() {
                 }
             }
             row.addView(open, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+
             val more = Button(this).apply {
                 text = "︙"
                 textSize = 17f
@@ -3461,6 +3593,10 @@ class MainActivity : Activity() {
             }
             row.addView(more, LinearLayout.LayoutParams(dpToPx(38), dpToPx(38)))
             editorTreeList.addView(row)
+
+            if (entry.isDirectory && expandedEditorFolders.contains(entry.uri.toString())) {
+                addEditorTreeFolder(entry.uri, depth + 1)
+            }
         }
     }
 
@@ -4286,6 +4422,7 @@ class MainActivity : Activity() {
 
         if (::saveCommitPanel.isInitialized) saveCommitPanel.visibility = View.GONE
         homeTab.visibility = View.VISIBLE
+        accountTab.visibility = View.GONE
         editorContainer.visibility = View.GONE
         previewArea.visibility = View.GONE
         projectTab.visibility = View.GONE
