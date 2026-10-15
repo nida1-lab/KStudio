@@ -854,6 +854,35 @@ class MainActivity : Activity() {
     searchSuggestionsPopup = null
     }
 
+    // Lightweight, interruptible motion for page and preview changes.
+    // Uses property animations rather than layout animations to keep typing responsive.
+    private fun animateKStudioEntrance(view: View) {
+        if (view.visibility != View.VISIBLE || !view.isAttachedToWindow) return
+        val scale = android.provider.Settings.Global.getFloat(
+            contentResolver,
+            android.provider.Settings.Global.ANIMATOR_DURATION_SCALE,
+            1f
+        )
+        view.animate().cancel()
+        if (scale <= 0f) {
+            view.alpha = 1f
+            view.translationY = 0f
+            return
+        }
+        view.alpha = 0f
+        view.translationY = dpToPx(12).toFloat()
+        view.animate()
+            .alpha(1f)
+            .translationY(0f)
+            .setDuration((220f * scale).toLong().coerceIn(80L, 450L))
+            .setInterpolator(android.view.animation.DecelerateInterpolator(1.5f))
+            .start()
+    }
+
+    private fun animateKStudioPage(view: View) {
+        view.post { animateKStudioEntrance(view) }
+    }
+
     private fun showEditorScreen() {
         if (::saveCommitPanel.isInitialized) saveCommitPanel.visibility = View.GONE
         homeTab.visibility = View.GONE
@@ -871,6 +900,7 @@ class MainActivity : Activity() {
 
         previewTitle.text = "Preview"
         currentScreen = "EDITOR"
+        animateKStudioPage(editorContainer)
         configurePageHeader(currentFileName.ifBlank { "コード" }, false)
         findViewById<Button>(R.id.menuButton).setOnClickListener { handleBackNavigation() }
 
@@ -2196,6 +2226,7 @@ class MainActivity : Activity() {
         searchBar.visibility = View.GONE
         projectBar.visibility = View.GONE
         currentScreen = "ACCOUNT"
+        animateKStudioPage(accountTab)
         configurePageHeader("アカウントセンター", false)
         findViewById<Button>(R.id.menuButton).setOnClickListener { showHomeTab() }
     }
@@ -2771,6 +2802,7 @@ class MainActivity : Activity() {
         projectBar.visibility = View.GONE
 
         currentScreen = "FILES"
+        animateKStudioPage(fileTab)
         configurePageHeader("ファイル", false)
         findViewById<Button>(R.id.menuButton).setOnClickListener { handleBackNavigation() }
         showFileBrowserTab()
@@ -2795,6 +2827,7 @@ class MainActivity : Activity() {
         fileCreatePanel.visibility = View.GONE
 
         currentScreen = "FILES"
+        animateKStudioPage(fileTab)
         configurePageHeader("ファイル", false)
         findViewById<Button>(R.id.menuButton).setOnClickListener { handleBackNavigation() }
         renderFileBrowser()
@@ -2818,6 +2851,7 @@ class MainActivity : Activity() {
         fileCreatePanel.visibility = View.VISIBLE
 
         currentScreen = "FILES"
+        animateKStudioPage(fileTab)
         configurePageHeader("新規ファイル", false)
         findViewById<Button>(R.id.menuButton).setOnClickListener { handleBackNavigation() }
 
@@ -4654,6 +4688,7 @@ class MainActivity : Activity() {
         projectBar.visibility = View.GONE
 
         currentScreen = "HOME"
+        animateKStudioPage(homeTab)
         configurePageHeader("HOME", true)
         findViewById<Button>(R.id.menuButton).setOnClickListener {
             showMainMenu(findViewById(R.id.menuButton))
@@ -5066,6 +5101,8 @@ class MainActivity : Activity() {
 
         editorPreviewSwapped = !editorPreviewSwapped
         applyEditorPreviewOrder()
+        animateKStudioPage(editorContainer)
+        animateKStudioPage(previewArea)
     }
 
     private fun applyEditorPreviewOrder() {
@@ -5116,6 +5153,7 @@ class MainActivity : Activity() {
         projectBar.visibility = View.GONE
 
         currentScreen = "PROJECTS"
+        animateKStudioPage(projectTab)
         configurePageHeader("プロジェクト", false)
         findViewById<Button>(R.id.menuButton).setOnClickListener { handleBackNavigation() }
 
@@ -5188,6 +5226,7 @@ class MainActivity : Activity() {
         fileBrowserPanel.visibility = View.VISIBLE
         fileCreatePanel.visibility = View.GONE
         currentScreen = "FILES"
+        animateKStudioPage(fileTab)
         configurePageHeader(getProjectDisplayName(uri), false)
         fileTabBackButton.text = "←"
         findViewById<Button>(R.id.menuButton).setOnClickListener { handleBackNavigation() }
@@ -5337,6 +5376,7 @@ class MainActivity : Activity() {
         }
 
         saveRunHistory(true)
+        animateKStudioPage(previewContainer)
 
         showKStudioNotice("Android Previewを起動しました (" +
                 result.scannedFiles +
@@ -5598,6 +5638,7 @@ class MainActivity : Activity() {
         projectBar.visibility = View.GONE
 
         currentScreen = "HISTORY"
+        animateKStudioPage(historyTab)
         configurePageHeader("履歴", false)
         findViewById<Button>(R.id.menuButton).setOnClickListener { handleBackNavigation() }
         renderHistoryTab()
