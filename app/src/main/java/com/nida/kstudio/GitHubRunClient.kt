@@ -23,6 +23,8 @@ data class RunState(
     val diagnostics: List<BuildDiagnostic> = emptyList()
 )
 
+private class GitHubRequestException(val code: Int, message: String) : IOException(message)
+
 /** All source and network work runs on the session's worker thread. */
 class GitHubRunClient(
     private val context: Context,
@@ -56,9 +58,10 @@ class GitHubRunClient(
                 require(repo.optJSONObject("permissions")?.optBoolean("push") == true) { "このリポジトリへの書き込み権限が必要です。" }
                 require(repo.optBoolean("private") || settings.allowPublic) { "このリポジトリは公開設定です。設定画面でソース公開への同意を選ぶか、非公開リポジトリを指定してください。" }
                 val defaultBranch = repo.getString("default_branch")
-                try { api("GET", "/actions/workflows/run-project.yml") } catch (e: Exception) {
+                val workflow = try { api("GET", "/actions/workflows/run-project.yml") } catch (e: Exception) {
                     throw IOException("実行用ワークフローがありません。最新版KStudioの .github/workflows/run-project.yml と tools をこのリポジトリの既定ブランチへ配置してください。", e)
                 }
+                require(workflow.optString("state") == "active") { "GitHubのActions画面で「Run project」ワークフローを有効化してください。" }
                 status("プロジェクトを読み込み中")
                 val snapshot = ProjectSnapshot.create(context, requireNotNull(tree), checkCancelled)
                 try {
@@ -78,14 +81,17 @@ class GitHubRunClient(
                         .put("message", "KStudio Run $requestId")
                         .put("tree", gitTree.getString("sha"))
                         .put("parents", JSONArray().put(head.getString("sha"))))
-                    api("POST", "/git/refs", JSONObject().put("ref", "refs/heads/$branch").put("sha", commit.getString("sha")))
-                    persist()
                     checkCancelled()
-                    status("ビルドを予約中")
-                    api("POST", "/actions/workflows/run-project.yml/dispatches", JSONObject()
-                        .put("ref", defaultBranch).put("inputs", JSONObject()
-                            .put("source_ref", commit.getString("sha")).put("request_id", requestId)
-                            .put("source_sha256", sourceDigest)))
+                    persist()
+                    status("実行ブランチを作成中")
+                    // A branch push starts the workflow directly. No workflow file or
+                    // default-branch source is modified by the app.
+                    try {
+                        api("POST", "/git/refs", JSONObject().put("ref", "refs/heads/$branch").put("sha", commit.getString("sha")))
+                    } catch (e: GitHubRequestException) {
+                        terminal = true
+                        throw e
+                    }
                 } finally { snapshot.file.delete() }
             } else {
                 val saved = JSONObject(resume)
@@ -103,10 +109,10 @@ class GitHubRunClient(
                 val deadline = System.currentTimeMillis() + 120000
                 while (runId == 0L) {
                     checkCancelled()
-                    val runs = api("GET", "/actions/workflows/run-project.yml/runs?event=workflow_dispatch&per_page=100").getJSONArray("workflow_runs")
+                    val runs = api("GET", "/actions/workflows/run-project.yml/runs?event=push&branch=${encode(branch)}&per_page=100").getJSONArray("workflow_runs")
                     for (i in 0 until runs.length()) {
                         val candidate = runs.getJSONObject(i)
-                        if (candidate.optString("display_title") == "KStudio Run $requestId") {
+                        if (candidate.optString("display_title") == "KStudio Run $branch") {
                             runId = candidate.getLong("id")
                             runUrl = candidate.getString("html_url")
                             persist()
@@ -114,7 +120,10 @@ class GitHubRunClient(
                         }
                     }
                     if (runId == 0L) {
-                        if (System.currentTimeMillis() > deadline) throw IOException("Actionsの開始を確認できません。再接続、またはGitHubのActions画面で確認してください。")
+                        if (System.currentTimeMillis() > deadline) {
+                            terminal = true
+                            throw IOException("Actionsの開始を確認できません。最新版の実行ワークフローとGitHub Actionsの有効化を確認して再実行してください。")
+                        }
                         Thread.sleep(4000)
                     }
                 }
@@ -168,7 +177,9 @@ class GitHubRunClient(
             terminal = true
             finalState = RunState("ビルド成功 — インストールできます", "$trace\n$log", false, runUrl, apk)
         } catch (e: CancellationException) {
-            var confirmed = runId == 0L
+            // Before a run ID is visible, stopping observation cannot prove that
+            // the pushed branch has not already queued a build.
+            var confirmed = runId == 0L && settings.pending() == null
             if (runId != 0L) {
                 confirmed = runCatching { api("POST", "/actions/runs/$runId/cancel"); true }.getOrDefault(false)
             }
@@ -204,7 +215,7 @@ class GitHubRunClient(
             val content = stream?.use { it.readBytes() }?.toString(Charsets.UTF_8).orEmpty()
             if (code !in 200..299) {
                 val message = runCatching { JSONObject(content).optString("message") }.getOrDefault("")
-                throw IOException("GitHub HTTP $code: ${message.take(500)}" + when (code) {
+                throw GitHubRequestException(code, "GitHub HTTP $code: ${message.take(500)}" + when (code) {
                     401 -> "\nトークンの期限と入力を確認してください。"
                     403, 404 -> "\n対象リポジトリの Contents / Actions の読み書き権限を確認してください。"
                     else -> ""

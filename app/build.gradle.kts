@@ -13,6 +13,8 @@ android {
         targetSdk = 35
         versionCode = 3
         versionName = "0.3.0"
+        testApplicationId = "com.nida.kstudio.test"
+        testInstrumentationRunner = "com.nida.kstudio.RunDeviceChecks"
     }
 
     compileOptions {

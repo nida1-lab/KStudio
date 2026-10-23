@@ -39,8 +39,8 @@ class RunActivity : Activity() {
             "light" -> false
             else -> resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
         }
-    private val foreground get() = if (dark) Color.WHITE else Color.rgb(25, 28, 34)
-    private val background get() = if (dark) Color.rgb(19, 21, 25) else Color.WHITE
+    private val uiTextColor get() = if (dark) Color.WHITE else Color.rgb(25, 28, 34)
+    private val uiBackground get() = if (dark) Color.rgb(19, 21, 25) else Color.WHITE
     private val tree get() = intent.getStringExtra("tree_uri")?.let(Uri::parse)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -50,7 +50,7 @@ class RunActivity : Activity() {
         page = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(16), dp(20), dp(24))
-            setBackgroundColor(background)
+            setBackgroundColor(uiBackground)
         }
         val scroll = ScrollView(this).apply { isFillViewport = true; addView(page) }
         setContentView(scroll)
@@ -143,13 +143,13 @@ class RunActivity : Activity() {
         val repo = EditText(this).apply {
             hint = "owner/repository"; setText(settings.repository)
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
-            setTextColor(foreground); setHintTextColor(Color.GRAY); setSingleLine()
+            setTextColor(uiTextColor); setHintTextColor(Color.GRAY); setSingleLine()
         }
         actions.addView(repo)
         val token = EditText(this).apply {
             hint = "GitHubのFine-grained PAT"
             inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-            setTextColor(foreground); setHintTextColor(Color.GRAY); setSingleLine()
+            setTextColor(uiTextColor); setHintTextColor(Color.GRAY); setSingleLine()
             importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
         }
         actions.addView(token)
@@ -157,16 +157,16 @@ class RunActivity : Activity() {
             text = "指定リポジトリへの Contents / Actions の Read and write 権限が必要です。\n" +
                 "このリポジトリの最新版か、そのForkを指定できます。トークンは端末で暗号化して保存します。\n" +
                 "保存済みトークンを使う場合は空欄のままにしてください。"
-            setTextColor(foreground); textSize = 13f; setPadding(0, dp(12), 0, dp(12))
+            setTextColor(uiTextColor); textSize = 13f; setPadding(0, dp(12), 0, dp(12))
         }
         actions.addView(explanation)
         val consent = CheckBox(this).apply {
             text = "Run時にプロジェクトをこのGitHubリポジトリへ送信する"
-            setTextColor(foreground); isChecked = settings.uploadConsent
+            setTextColor(uiTextColor); isChecked = settings.uploadConsent
         }
         val publicConsent = CheckBox(this).apply {
             text = "公開リポジトリを使い、ソースコードが公開されることに同意する"
-            setTextColor(foreground); isChecked = settings.allowPublic
+            setTextColor(uiTextColor); isChecked = settings.allowPublic
         }
         actions.addView(consent); actions.addView(publicConsent)
         button("保存してRunへ戻る", actions) {
@@ -247,12 +247,12 @@ class RunActivity : Activity() {
     }
 
     private fun label(value: String, size: Float): TextView = TextView(this).apply {
-        text = value; textSize = size; setTextColor(foreground); setPadding(0, dp(10), 0, dp(10))
+        text = value; textSize = size; setTextColor(uiTextColor); setPadding(0, dp(10), 0, dp(10))
         page.addView(this, LinearLayout.LayoutParams(-1, -2))
     }
     private fun button(value: String, parent: LinearLayout = page, action: () -> Unit) {
         parent.addView(Button(this).apply {
-            text = value; isAllCaps = false; textSize = 14f; setTextColor(foreground)
+            text = value; isAllCaps = false; textSize = 14f; setTextColor(uiTextColor)
             background = GradientDrawable().apply {
                 setColor(if (dark) Color.rgb(39, 43, 51) else Color.rgb(239, 242, 247))
                 cornerRadius = dp(12).toFloat()

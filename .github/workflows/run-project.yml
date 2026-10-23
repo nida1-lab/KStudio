@@ -1,7 +1,9 @@
 name: Run project
-run-name: KStudio Run ${{ inputs.request_id }}
+run-name: KStudio Run ${{ inputs.request_id || github.ref_name }}
 
 on:
+  push:
+    branches: ['kstudio-run/**']
   workflow_dispatch:
     inputs:
       source_ref:
@@ -39,12 +41,14 @@ permissions:
 
 jobs:
   build-project:
+    if: github.event_name != 'push' || !github.event.deleted
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
       REQUEST_ID: ${{ inputs.request_id }}
       SOURCE_SHA: ${{ inputs.source_sha256 }}
-      SOURCE_REF: ${{ inputs.source_ref }}
+      SOURCE_REF: ${{ inputs.source_ref || github.sha }}
+      SOURCE_BRANCH: ${{ github.ref_name }}
       SMOKE_TEST: ${{ inputs.smoke_test || false }}
       FIXTURE: ${{ inputs.fixture || 'run-counter' }}
       GRADLE_USER_HOME: ${{ github.workspace }}/.run-gradle
@@ -57,7 +61,7 @@ jobs:
       - name: Checkout project snapshot
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.source_ref }}
+          ref: ${{ inputs.source_ref || github.sha }}
           path: source
           persist-credentials: false
       - name: Setup JDK
@@ -70,10 +74,19 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist
+          if [[ -z "$REQUEST_ID" ]]; then
+            [[ "$SOURCE_BRANCH" =~ ^kstudio-run/[a-f0-9-]{36}$ ]]
+            REQUEST_ID="${SOURCE_BRANCH#kstudio-run/}"
+            echo "REQUEST_ID=$REQUEST_ID" >> "$GITHUB_ENV"
+          fi
           if [[ "$SMOKE_TEST" == "true" ]]; then
             [[ "$FIXTURE" == "run-counter" || "$FIXTURE" == "run-console" ]]
             mkdir -p source/.kstudio
             python3 -c 'import os, shutil; shutil.make_archive("source/.kstudio/project", "zip", "source/examples/" + os.environ["FIXTURE"])'
+            SOURCE_SHA=$(sha256sum source/.kstudio/project.zip | cut -d ' ' -f 1)
+            echo "SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
+          fi
+          if [[ -z "$SOURCE_SHA" ]]; then
             SOURCE_SHA=$(sha256sum source/.kstudio/project.zip | cut -d ' ' -f 1)
             echo "SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
           fi
@@ -100,7 +113,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: kstudio-run-${{ inputs.request_id }}
+          name: kstudio-run-${{ env.REQUEST_ID }}
           path: |
             dist/project.apk
             dist/build.log

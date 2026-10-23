@@ -641,6 +641,8 @@ class MainActivity : Activity() {
                 savedFileUri?.let {
                     Uri.parse(it)
                 }
+            folderRootUri = savedInstanceState.getString("folderRootUri")?.let(Uri::parse)
+            currentFolderUri = savedInstanceState.getString("currentFolderUri")?.let(Uri::parse)
 
             isDirty =
                 savedInstanceState.getBoolean(
@@ -732,6 +734,8 @@ class MainActivity : Activity() {
     override fun onSaveInstanceState(
         outState: Bundle
     ) {
+        outState.putString("folderRootUri", folderRootUri?.toString())
+        outState.putString("currentFolderUri", currentFolderUri?.toString())
 
         outState.putString(
             "editorText",
@@ -2623,9 +2627,10 @@ class MainActivity : Activity() {
             }
             uri = entry.uri
         }
-        openManagedFile(uri, segments.last())
-        lineInput.setText(line.toString())
-        jumpToLine()
+        openManagedFile(uri, segments.last()) {
+            lineInput.setText(line.toString())
+            jumpToLine()
+        }
     }
 
     private fun handleProjectFolderResult(data: Intent) {
@@ -3372,7 +3377,8 @@ class MainActivity : Activity() {
 
     private fun openManagedFile(
         uri: Uri,
-        name: String
+        name: String,
+        onOpened: (() -> Unit)? = null
     ) {
         val lockOwner = getFileLockOwner(uri)
         val account = getAccountName()
@@ -3425,6 +3431,7 @@ class MainActivity : Activity() {
                 showEditorScreen()
 
                 showKStudioNotice("開きました: " + name)
+                onOpened?.invoke()
             } catch (e: Exception) {
                 historyApplying = false
                 releaseFileLock(uri)
@@ -5361,7 +5368,6 @@ class MainActivity : Activity() {
             folderRootUri
 
         if (treeUri == null) {
-            saveRunHistory(false)
             showError(
                 line = 1,
                 code = "P000",
@@ -5398,7 +5404,6 @@ class MainActivity : Activity() {
             }
 
         if (!result.success) {
-            saveRunHistory(false)
 
             showError(
                 line = 1,
@@ -5417,251 +5422,11 @@ class MainActivity : Activity() {
             return
         }
 
-        saveRunHistory(true)
         animateKStudioPage(previewContainer)
 
         showKStudioNotice("Android Previewを起動しました (" +
                 result.scannedFiles +
                 " files)")
-    }
-
-    private fun validateCode(
-        source: String
-    ): Pair<Int, String>? {
-
-        val stack =
-            mutableListOf<Pair<Char, Int>>()
-
-        var line = 1
-        var inString = false
-        var inRawString = false
-        var inChar = false
-        var escaped = false
-        var inLineComment = false
-        var index = 0
-
-        while (index < source.length) {
-
-            val ch = source[index]
-            val next = source.getOrNull(index + 1)
-
-            if (inRawString) {
-
-                if (
-                    source.startsWith(
-                        "\"\"\"",
-                        index
-                    )
-                ) {
-                    inRawString = false
-                    index += 3
-                    continue
-                }
-
-                if (ch == '\n') {
-                    line++
-                }
-
-                index++
-                continue
-            }
-
-            if (ch == '\n') {
-
-                line++
-                inLineComment = false
-
-                if (inString || inChar) {
-                    return (line - 1) to
-                        "文字列または文字リテラルが閉じられていません。"
-                }
-
-                index++
-                continue
-            }
-
-            if (inLineComment) {
-                index++
-                continue
-            }
-
-            if (
-                !inString &&
-                !inChar &&
-                source.startsWith(
-                    "\"\"\"",
-                    index
-                )
-            ) {
-                inRawString = true
-                index += 3
-                continue
-            }
-
-            if (
-                !inString &&
-                !inChar &&
-                ch == '/' &&
-                next == '/'
-            ) {
-                inLineComment = true
-                index += 2
-                continue
-            }
-
-            if (!inChar && ch == '"' && !escaped) {
-                inString = !inString
-                index++
-                continue
-            }
-
-            if (!inString && ch == '\'' && !escaped) {
-                inChar = !inChar
-                index++
-                continue
-            }
-
-            if (
-                (inString || inChar) &&
-                ch == '\\' &&
-                !escaped
-            ) {
-                escaped = true
-                index++
-                continue
-            }
-
-            if (inString || inChar) {
-                escaped = false
-                index++
-                continue
-            }
-
-            when (ch) {
-
-                '{', '(', '[' -> {
-                    stack.add(ch to line)
-                }
-
-                '}', ')', ']' -> {
-
-                    if (stack.isEmpty()) {
-                        return line to
-                            "閉じ括弧 " +
-                            ch +
-                            " に対応する開き括弧がありません。"
-                    }
-
-                    val expected =
-                        when (stack.last().first) {
-                            '{' -> '}'
-                            '(' -> ')'
-                            else -> ']'
-                        }
-
-                    if (expected != ch) {
-                        return line to
-                            "括弧の対応が正しくありません。期待: " +
-                            expected +
-                            " / 実際: " +
-                            ch
-                    }
-
-                    stack.removeAt(
-                        stack.lastIndex
-                    )
-                }
-            }
-
-            escaped = false
-            index++
-        }
-
-        if (inString || inRawString || inChar) {
-            return line to
-                "文字列または文字リテラルが閉じられていません。"
-        }
-
-        if (stack.isNotEmpty()) {
-
-            val open = stack.last()
-
-            val expected =
-                when (open.first) {
-                    '{' -> '}'
-                    '(' -> ')'
-                    else -> ']'
-                }
-
-            return open.second to
-                "開き括弧 " +
-                open.first +
-                " が閉じられていません。期待: " +
-                expected
-        }
-
-        return null
-    }
-
-    private fun showRunSuccess(
-        source: String
-    ) {
-
-        if (fullscreen) {
-            togglePreviewFullscreen()
-        }
-
-        previewContainer.removeAllViews()
-
-        val root =
-            LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                setPadding(20, 20, 20, 20)
-            }
-
-        val title =
-            TextView(this).apply {
-                text = "Run OK"
-                setSimpleIcon(this, R.drawable.ic_play_simple)
-                textSize = 24f
-                setTextColor(
-                    Color.rgb(30, 150, 70)
-                )
-            }
-
-        val info =
-            TextView(this).apply {
-                text =
-                    "KStudio static check\n\n" +
-                    "ファイル: " +
-                    currentFileName +
-                    "\n行数: " +
-                    source.lines().size +
-                    "\n文字数: " +
-                    source.length +
-                    "\n\n" +
-                    "括弧・文字列の基本チェックに成功しました。\n" +
-                    "実際のAndroid APKビルドはGitHub Actions側で実行します。"
-                textSize = 15f
-                setTextColor(
-                    primaryTextColor()
-                )
-                setPadding(0, 16, 0, 16)
-            }
-
-        val back =
-            Button(this).apply {
-                text = "Previewに戻る"
-                setOnClickListener {
-                    updatePreview()
-                }
-            }
-
-        root.addView(title)
-        root.addView(info)
-        root.addView(back)
-
-        previewContainer.addView(root)
     }
 
     // History Tab

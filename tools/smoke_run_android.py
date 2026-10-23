@@ -22,6 +22,14 @@ def wait_for(text):
         try:
             root = hierarchy()
             last = ET.tostring(root, encoding="unicode")
+            # A cold emulator may show a launcher ANR while the tested Activity
+            # is already running underneath it. Dismiss only the launcher ANR;
+            # never dismiss an ANR from the app whose behavior we are checking.
+            if any(node.get("resource-id") == "android:id/alertTitle" and
+                   node.get("text", "").startswith("Quickstep") for node in root.iter("node")):
+                close = next(node for node in root.iter("node") if node.get("resource-id") == "android:id/aerr_close")
+                tap(close)
+                continue
             if any(text in node.get("text", "") for node in root.iter("node")):
                 return root
         except (ET.ParseError, subprocess.CalledProcessError):
@@ -32,9 +40,14 @@ def wait_for(text):
     raise AssertionError(f"Compiled app did not display {text!r}")
 
 
+def tap(node):
+    x1, y1, x2, y2 = map(int, re.findall(r"\d+", node.get("bounds")))
+    adb("shell", "input", "tap", str((x1 + x2) // 2), str((y1 + y2) // 2))
+
+
 def main():
     apk, fixture = sys.argv[1:]
-    package = {"run-counter": "com.example.kstudiorun", "run-console": "com.example.kstudioconsole"}[fixture]
+    package = {"run-counter": "com.example.kstudiorun", "run-console": "com.kstudio.project"}[fixture]
     adb("install", "-r", "-t", apk)
     activity = "MainActivity" if fixture == "run-counter" else "KStudioConsoleActivity"
     adb("shell", "am", "force-stop", package)
@@ -42,8 +55,7 @@ def main():
     if fixture == "run-counter":
         root = wait_for("Count: 0")
         button = next(node for node in root.iter("node") if node.get("text") == "ADD")
-        x1, y1, x2, y2 = map(int, re.findall(r"\d+", button.get("bounds")))
-        adb("shell", "input", "tap", str((x1 + x2) // 2), str((y1 + y2) // 2))
+        tap(button)
         wait_for("Count: 1")
         print("KSTUDIO_ANDROID_RUN_OK: Kotlin click handler changed Count: 0 -> Count: 1")
     else:

@@ -38,7 +38,7 @@ jobs:
         run: python3 -m unittest discover -s tools -p 'test_*.py' -v
 
       - name: Build APK
-        run: gradle testDebugUnitTest assembleDebug
+        run: gradle testDebugUnitTest assembleDebug assembleDebugAndroidTest
 
       # APK
       - name: Upload APK
@@ -47,6 +47,24 @@ jobs:
           name: KStudio-debug
           path: app/build/outputs/apk/debug/app-debug.apk
           retention-days: 7
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Verify KStudio Run on Android
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: |
+            adb install -r -t app/build/outputs/apk/debug/app-debug.apk
+            adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            python3 -c 'import subprocess; r=subprocess.check_output(["adb","shell","am","instrument","-w","com.nida.kstudio.test/com.nida.kstudio.RunDeviceChecks"],text=True); print(r); assert "KSTUDIO_DEVICE_CHECKS_OK" in r'
 
   run-smoke-test:
     strategy:

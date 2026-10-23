@@ -1,5 +1,3 @@
-package com.example.kstudioconsole
-
 fun main() {
     fun square(value: Int): Int = value * value
     val values = (1..5).map(::square)
