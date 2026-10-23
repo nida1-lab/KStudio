@@ -15,6 +15,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
 
     steps:
       - name: Checkout
@@ -33,9 +34,13 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      # Build
-      - name: Test project snapshot and Gradle preparation
-        run: python3 -m unittest discover -s tools -p 'test_*.py' -v
+      - name: Cache bundled local toolchain
+        uses: actions/cache@v4
+        with:
+          path: |
+            app/build/generated/local-tools
+            .local-toolchain-cache
+          key: kstudio-local-v1-${{ hashFiles('tools/build_local_toolchain.py', 'tools/local/**') }}
 
       - name: Build APK
         run: gradle testDebugUnitTest assembleDebug assembleDebugAndroidTest
@@ -64,17 +69,10 @@ jobs:
           script: |
             adb install -r -t app/build/outputs/apk/debug/app-debug.apk
             adb install -r -t app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-            python3 -c 'import subprocess; r=subprocess.check_output(["adb","shell","am","instrument","-w","com.nida.kstudio.test/com.nida.kstudio.RunDeviceChecks"],text=True); print(r); assert "KSTUDIO_DEVICE_CHECKS_OK" in r'
-
-  run-smoke-test:
-    strategy:
-      fail-fast: false
-      matrix:
-        fixture: [run-counter, run-console]
-    uses: ./.github/workflows/run-project.yml
-    with:
-      source_ref: ${{ github.sha }}
-      request_id: smoke-${{ matrix.fixture }}-${{ github.run_id }}
-      smoke_test: true
-      fixture: ${{ matrix.fixture }}
-
+            adb shell svc wifi disable
+            adb shell svc data disable
+            python3 -c 'import subprocess; r=subprocess.check_output(["adb","shell","am","instrument","-w","com.nida.kstudio.test/com.nida.kstudio.RunDeviceChecks"],text=True); print(r); assert "KSTUDIO_OFFLINE_BUILD_OK" in r'
+            adb exec-out run-as com.nida.kstudio cat files/device-test-counter.apk > offline-counter.apk
+            adb exec-out run-as com.nida.kstudio cat files/device-test-console.apk > offline-console.apk
+            python3 tools/smoke_run_android.py offline-counter.apk run-counter
+            python3 tools/smoke_run_android.py offline-console.apk run-console

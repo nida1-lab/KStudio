@@ -41,7 +41,7 @@ data class ProjectSnapshot(val file: File, val count: Int, val sha256: String) {
                                 if (it.getString(2) == DocumentsContract.Document.MIME_TYPE_DIR) {
                                     scan(uri, "$path/", depth + 1)
                                 } else {
-                                    require(++count <= 1000) { "送信できるファイルは1000個までです。" }
+                                    require(++count <= 1000) { "取り込めるファイルは1000個までです。" }
                                     zip.putNextEntry(ZipEntry(path))
                                     context.contentResolver.openInputStream(uri)?.use { input ->
                                         val buffer = ByteArray(16384)
@@ -51,7 +51,7 @@ data class ProjectSnapshot(val file: File, val count: Int, val sha256: String) {
                                             val n = input.read(buffer)
                                             if (n < 0) break
                                             fileBytes += n; bytes += n
-                                            require(fileBytes <= 10 * 1024 * 1024 && bytes <= 25 * 1024 * 1024) { "送信上限は1ファイル10MB・全体25MBです。" }
+                                            require(fileBytes <= 10 * 1024 * 1024 && bytes <= 25 * 1024 * 1024) { "取り込み上限は1ファイル10MB・全体25MBです。" }
                                             zip.write(buffer, 0, n)
                                         }
                                     } ?: throw IOException("ファイルを読み取れません: $path")

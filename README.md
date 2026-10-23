@@ -60,56 +60,57 @@
 AさんとBさんが別端末から同じプロジェクトをリアルタイムで共同編集するには、Cloud側の共有データベースと同期APIが必要です。
 この接続先は今後のCloud機能実装で追加します。
 
-## Run：実際のKotlin / Android実行
+## Run：端末内ビルド・実行
 
-Runで編集中のファイルを保存し、プロジェクト全体をGitHub Actionsへ送ります。
-Kotlinコンパイラ・Android Gradle PluginでDebug APKを生成し、アプリ内でダウンロード、インストール、起動できます。
-処理は別のAndroidアプリとして端末上で実行されます。KStudio内のXMLプレビューはレイアウト確認専用です。
+KStudio 0.4のRunは、端末内でKotlinをコンパイルし、Androidリソース生成、DEX変換、APK署名まで実行します。
+GitHubログイン、PAT、サーバ、Termux、初回ツールダウンロードは不要です。必要なツールはKStudioのAPKに含まれます。
+生成したAPKをインストールすると、コードは通常の独立したAndroidアプリとして端末上で動きます。
 
-### 初回の設定
+### 使い方
 
-1. Run → GitHub接続設定を開く。
-2. 最新版のこのリポジトリ、またはそのForkを `owner/repo` で指定する。
-3. GitHubのFine-grained PATを**アプリ内**へ入力する。対象リポジトリの **Contents: Read and write / Actions: Read and write** が必要。
-4. ソース送信への同意を選択して保存する。公開リポジトリではソースも公開されるので、追加の同意が必要。
-5. 「ビルドして実行」→「APKをインストール」→「インストール済みアプリを起動」。Androidから求められた場合はKStudioの「不明なアプリのインストール」を許可する。
+1. プロジェクトフォルダを開いてKotlinコードを編集する。
+2. Runを押す。未保存の編集は保存してから、端末内でビルドする。
+3. 「APKをインストール」を押し、Androidが求める場合はインストールを許可する。
+4. 「インストール済みアプリを起動」を押す。
 
-このチャットのGitHub接続と、端末上のKStudioの認証は別です。PATをチャットに送る必要はありません。
-PATはAndroid Keystoreの鍵でAES-GCM暗号化し、バックアップ対象から除外しています。
+初回は同梱ツールをアプリ領域へ展開します。2回目以降は展開済みコンパイラを再利用します。
+Run画面とコンパイラはエディタとは別プロセスに配置しています。
+XMLだけを確認する場合はエディタの「XMLレイアウトをプレビュー」を使えます。
 
-### 対応するプロジェクト
+### 対応範囲
 
-- **KStudioの簡単なフォルダ**：`package` 宣言付きの `MainActivity.kt` / `.java` と、他のソース、`res/`、`assets/`。Gradleの設定を自動生成する。新規プロジェクトはクリックで数値が変わるカウンターから開始。
-- **Kotlinコンソール**：トップレベルの `fun main()` / `fun main(args: Array<String>)` をAndroidアプリへコンパイルし、`println` と例外を画面に表示。標準入力には未対応。
-- **既存のAndroid Gradleプロジェクト**：依存関係とビルド設定を維持して `assembleDebug`。JDK 17を使用し、Gradleのバージョンはwrapperのpropertiesから取得（未指定時8.9）。単一のDebug APK、またはuniversal APKに対応。
+- 実行ビルド: **Android 11以降、arm64-v8a / x86_64**。編集機能はAndroid 8以降。
+- Kotlin 2.2.10、Android標準View、`res/`、`assets/`、`libs/`内の通常のJAR。
+- `package`宣言のある`MainActivity.kt`と、他のKotlinファイルをまとめてコンパイル。
+- `fun main()` / `fun main(args: Array<String>)` はコンソール用のAndroid画面へコンパイル。`println`と例外を表示。標準入力は未対応。
+- 通常のフォルダ、`src/main`、`app/src/main`を検出。リソースIDはaapt2の実際のリンク結果から生成。
+- Kotlin/リソースのエラーを表示し、対応するファイルの行へ移動。
 
-簡単なフォルダには外部ライブラリを自動追加しません。Compose / AppCompat等を使う場合は、依存関係を宣言したGradleプロジェクトを開いてください。
-`examples/run-counter` と `examples/run-console` はそのまま開いてRunできる実行サンプルです。
+**Gradle自体の実行、Javaソースの混在、Composeコンパイラプラグイン、AARのマージ、Gradleプラグインによる独自処理、Mavenからの自動依存解決は現在未対応です。**
+Gradleプロジェクトの`src/main`は読み込めますが、そのビルドスクリプトを実行するものではありません。
+追加ライブラリを使う場合は、Android上で使えるJARをプロジェクトの`libs/`に配置してください。
 
-### ビルドの状態とエラー
+### 署名・容量
 
-- アプリを閉じたり通信が切れたりしても、開始済みのActionsは継続。「前回のビルドに再接続」で結果を取得できる。
-- 同時に開始できるビルドは1件。停止要求とActionsへのリンクを用意。
-- Kotlin / javac / XMLのコンパイルエラーはログに表示し、対応ファイル・行へ移動できる。
-- ソースZIPのSHA-256、リクエストID、APKのSHA-256を確認してからインストールする。
-- 実行ごとに `kstudio-run/<UUID>` ブランチへソースZIPを送る。完了・停止時は一時ブランチの削除を試みる。成果物は3日間保存。公開されたソースの完全な消去を保証するものではない。
-- `.git` / `.gradle` / `build` / `local.properties`、代表的な鍵ファイル等は送信から除外。最大1000ファイル・全体25MB・1ファイル10MB。
+実行用APKの署名鍵は端末のAndroid Keystoreで生成し、同じKStudioインストール中は保持します。
+同じpackageのアプリは更新インストールできます。KStudioをアンインストールすると鍵が失われるため、その鍵で作ったアプリの更新には既存アプリの削除が必要になる場合があります。
+同梱コンパイラとAndroid APIのため、KStudio本体と初回展開後の容量が増えます。
+取り込みは1000ファイル・全体25MB・1ファイル10MBまで。ビルド結果は直近3件をキャッシュします。
 
-### Debug署名
+### 開発・検証
 
-`tools/run-debug.keystore` は実行用APKを更新インストールできるようにする**公開のテスト専用鍵**です。
-パスワードとaliasはAndroid標準Debug値（`android` / `androiddebugkey`）。配布・本番署名には使用しないでください。
-ビルド用リポジトリにActionsのシークレットを登録する必要はありません。
+KStudio本体のソース管理・APK配布には引き続きGitHubを利用します。アプリのRunはGitHubにアクセスしません。
+CIではAndroid 35エミュレーターのWi-Fiとモバイル通信を切り、次を検証します。
 
-### ビルド・検証
-
-GitHub Actionsの「Build APK」はKStudio本体のユニットテストとDebug APK生成を実行します。
-さらに「Run project」の同じビルド経路でカウンターとコンソールのAPKを生成し、Android 35エミュレーターへインストール・起動します。
-カウンターのクリックで `Count: 0 → Count: 1`、Kotlinの関数・map・printlnの実行結果を自動確認します。
+- Kotlinを端末内でコンパイルし、XMLとリソースIDを使うカウンターのAPKを生成・署名・インストール。
+- 実行したアプリのボタン操作で`Count: 0 → Count: 1`。
+- Kotlinコンソールの関数・範囲・map・println・checkの実行。
+- 未定義参照を実際のコンパイラがエラーとして返すこと、行番号、端末の署名鍵の継続性。
+- フォルダ取り込み、バイナリ保存、APK共有範囲、トークン設定不要のRun画面。
 
 ```sh
-python3 -m unittest discover -s tools -p 'test_*.py' -v
-gradle testDebugUnitTest assembleDebug
+gradle testDebugUnitTest assembleDebug assembleDebugAndroidTest
 ```
 
-KStudio本体のAPKはActionsの `KStudio-debug` Artifactから取得できます。
+Debug APKはActionsの`KStudio-debug` Artifactで取得できます。
+ツールの来歴は[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)を参照してください。

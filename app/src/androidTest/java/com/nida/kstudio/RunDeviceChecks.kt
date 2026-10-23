@@ -22,29 +22,15 @@ class RunDeviceChecks : Instrumentation() {
     override fun onStart() {
         val result = Bundle()
         try {
-            checkEncryptedToken()
             checkDocumentSnapshot()
             checkApkProvider()
-            checkRunSettingsScreen()
-            result.putString("stream", "KSTUDIO_DEVICE_CHECKS_OK: Keystore, recursive SAF snapshot, APK provider, Run settings UI\n")
+            checkLocalRunScreen()
+            checkOfflineBuilds()
+            result.putString("stream", "KSTUDIO_DEVICE_CHECKS_OK: recursive SAF snapshot, APK provider, local Run UI\nKSTUDIO_OFFLINE_BUILD_OK: counter XML, console, diagnostics, stable device signing\n")
             finish(Activity.RESULT_OK, result)
         } catch (failure: Throwable) {
             result.putString("stream", failure.stackTraceToString())
             finish(Activity.RESULT_CANCELED, result)
-        }
-    }
-
-    private fun checkEncryptedToken() {
-        val settings = RunSettings(targetContext)
-        val previous = settings.readToken()
-        val token = "device-test-${UUID.randomUUID()}"
-        try {
-            settings.saveToken(token)
-            check(settings.readToken() == token)
-            val encoded = targetContext.getSharedPreferences("remote_build", 0).getString("token", "")!!
-            check(!encoded.contains(token))
-        } finally {
-            if (previous.isEmpty()) settings.clearToken() else settings.saveToken(previous)
         }
     }
 
@@ -76,24 +62,49 @@ class RunDeviceChecks : Instrumentation() {
         } finally { directory.deleteRecursively() }
     }
 
-    private fun checkRunSettingsScreen() {
-        val activity = startActivitySync(Intent(targetContext, RunActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        try {
-            waitForIdleSync()
-            runOnMainSync {
-                val root = activity.window.decorView
-                findText(root, "GitHub接続設定")!!.performClick()
-                check(findText(root, "保存してRunへ戻る") != null)
-                check(findText(root, "Run時にプロジェクトをこのGitHubリポジトリへ送信する") != null)
-            }
-        } finally { runOnMainSync { activity.finish() } }
+    private fun checkLocalRunScreen() {
+        targetContext.startActivity(Intent(targetContext, RunActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        var visible = false
+        repeat(100) {
+            val root = uiAutomation.rootInActiveWindow
+            if (root != null && root.findAccessibilityNodeInfosByText("端末内でビルド").isNotEmpty()) visible = true
+            if (!visible) Thread.sleep(100)
+        }
+        check(visible) { "Local Run screen did not open" }
+        uiAutomation.executeShellCommand("input keyevent 4").close()
     }
 
-    private fun findText(view: View, text: String): TextView? {
-        if (view is TextView && view.text.toString() == text) return view
-        if (view is ViewGroup) for (index in 0 until view.childCount) {
-            findText(view.getChildAt(index), text)?.let { return it }
+    private fun checkOfflineBuilds() {
+        check(targetContext.checkSelfPermission(android.Manifest.permission.INTERNET) == android.content.pm.PackageManager.PERMISSION_DENIED)
+        val network = targetContext.getSystemService(android.net.ConnectivityManager::class.java)
+        check(network.activeNetwork == null) { "This test must run with Wi-Fi and mobile data disabled" }
+        val engine = LocalProjectBuilder(targetContext)
+        val tests = File(targetContext.cacheDir, "offline-tests").apply { deleteRecursively(); mkdirs() }
+        fun fixture(name: String): File {
+            val root = File(tests, "$name/kstudio-work").apply { mkdirs() }
+            fun copy(asset: String, destination: File) {
+                val children = context.assets.list(asset).orEmpty()
+                if (children.isNotEmpty()) { destination.mkdirs(); children.forEach { copy("$asset/$it", File(destination, it)) } }
+                else { destination.parentFile!!.mkdirs(); context.assets.open(asset).use { input -> destination.outputStream().use { input.copyTo(it) } } }
+            }
+            copy(name, root)
+            return root
         }
-        return null
+        val counter = fixture("run-counter")
+        val first = engine.build(counter, File(tests, "counter-first"))
+        first.copyTo(File(targetContext.filesDir, "device-test-counter.apk"), overwrite = true)
+        val second = engine.build(counter, File(tests, "counter-second"))
+        @Suppress("DEPRECATION")
+        fun certificate(apk: File): ByteArray = targetContext.packageManager.getPackageArchiveInfo(apk.path,
+            android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES)!!.signingInfo!!.apkContentsSigners[0].toByteArray()
+        check(certificate(first).contentEquals(certificate(second))) { "Debug signing identity changed between builds" }
+        val console = engine.build(fixture("run-console"), File(tests, "console"))
+        console.copyTo(File(targetContext.filesDir, "device-test-console.apk"), overwrite = true)
+        val invalid = File(tests, "invalid/kstudio-work").apply { mkdirs() }
+        File(invalid, "Main.kt").writeText("fun main() { doesNotExist() }")
+        val failure = runCatching { engine.build(invalid, File(tests, "invalid-result")) }.exceptionOrNull()
+        check(failure is LocalBuildException && failure.message.orEmpty().contains("doesNotExist")) { "The real compiler must report undefined references" }
+        check(BuildDiagnostic.parse(failure.message.orEmpty()).any { it.path == "Main.kt" && it.line == 1 })
+        check(network.activeNetwork == null) { "Network unexpectedly became available" }
     }
 }

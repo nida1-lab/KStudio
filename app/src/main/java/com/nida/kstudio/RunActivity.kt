@@ -7,17 +7,13 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Color
-import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
-import android.text.InputType
 import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
-import android.widget.CheckBox
-import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.ScrollView
@@ -25,7 +21,6 @@ import android.widget.TextView
 import java.io.File
 
 class RunActivity : Activity() {
-    private lateinit var settings: RunSettings
     private lateinit var page: LinearLayout
     private lateinit var title: TextView
     private lateinit var details: TextView
@@ -45,47 +40,34 @@ class RunActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        settings = RunSettings(this)
         waitingForInstallPermission = savedInstanceState?.getBoolean("waiting_install", false) ?: false
         page = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(16), dp(20), dp(24))
             setBackgroundColor(uiBackground)
         }
-        val scroll = ScrollView(this).apply { isFillViewport = true; addView(page) }
-        setContentView(scroll)
-        val insetsView = window.decorView
-        insetsView.setOnApplyWindowInsetsListener { view, insets ->
+        setContentView(ScrollView(this).apply { isFillViewport = true; addView(page) })
+        window.decorView.setOnApplyWindowInsetsListener { view, insets ->
             if (android.os.Build.VERSION.SDK_INT >= 30) {
                 val bars = insets.getInsets(android.view.WindowInsets.Type.systemBars())
                 view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
-            } else {
-                @Suppress("DEPRECATION")
-                view.setPadding(insets.systemWindowInsetLeft, insets.systemWindowInsetTop,
-                    insets.systemWindowInsetRight, insets.systemWindowInsetBottom)
             }
             insets
         }
         button("← エディタに戻る") { finish() }
-        title = label("コードを実行", 24f)
-        label("Kotlinをコンパイルして、端末でAndroidアプリとして起動します。", 14f)
-        progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply {
-            isIndeterminate = true; visibility = View.GONE
-        }
+        title = label("端末内で実行", 24f)
+        label("コンパイル・APK生成・署名をこの端末で行います。", 14f)
+        progress = ProgressBar(this, null, android.R.attr.progressBarStyleHorizontal).apply { isIndeterminate = true; visibility = View.GONE }
         page.addView(progress, LinearLayout.LayoutParams(-1, dp(8)).apply { topMargin = dp(16) })
         actions = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         page.addView(actions)
-        details = label("", 12f).apply { typeface = Typeface.MONOSPACE; setTextIsSelectable(true) }
-
-        if (RunSession.state.busy || (savedInstanceState != null && RunSession.state.log.isNotBlank())) {
-            render(RunSession.state)
-        } else {
+        details = label("", 12f).apply { typeface = android.graphics.Typeface.MONOSPACE; setTextIsSelectable(true) }
+        if (RunSession.state.busy || (savedInstanceState != null && RunSession.state.log.isNotBlank())) render(RunSession.state)
+        else {
             showReady()
-            if (savedInstanceState == null && settings.uploadConsent && settings.pending() == null &&
-                runCatching { settings.readToken().isNotBlank() }.getOrDefault(false)) startBuild()
+            if (savedInstanceState == null && tree != null) startBuild()
         }
     }
-
     override fun onStart() {
         super.onStart()
         observer = { render(it) }
@@ -108,93 +90,23 @@ class RunActivity : Activity() {
             else details.text = "インストール許可が必要です。「APKをインストール」から再試行できます。"
         }
     }
-
     private fun showReady() {
-        title.text = "Run — 実際のコードを実行"
         actions.removeAllViews()
-        button("ビルドして実行", actions) { startBuild() }
-        if (settings.pending() != null) button("前回のビルドに再接続", actions) {
-            RunSession.start(this, tree, settings.pending())
-        }
-        button("GitHub接続設定", actions) { showSettings() }
-        details.text = "実行先: ${settings.repository}\n\n初回は「GitHub接続設定」を開いてください。\nビルドにはインターネット接続とGitHub Actionsを使います。"
+        button("端末内でビルド", actions) { startBuild() }
+        details.text = "Kotlin / Android View / res / assets / libs内のJARに対応。\n\nコンパイラは同梱済みです。通信・アカウント設定は不要です。\n初回はツールの展開に時間がかかります。"
     }
-
     private fun startBuild() {
-        if (RunSession.state.busy) return
-        if (!settings.uploadConsent || !runCatching { settings.readToken().isNotBlank() }.getOrDefault(false)) {
-            showSettings(); return
-        }
-        if (settings.pending() != null) {
-            details.text = "前回のビルドが残っています。「前回のビルドに再接続」で結果を確認してください。"
-            actions.removeAllViews()
-            button("前回のビルドに再接続", actions) { RunSession.start(this, tree, settings.pending()) }
-            button("接続設定", actions) { showSettings() }
-            return
-        }
-        if (tree == null) { details.text = "プロジェクトフォルダを開いてからRunしてください。"; return }
+        if (tree == null) { details.text = "プロジェクトフォルダを開いてから実行してください。"; return }
         RunSession.start(this, tree)
         render(RunSession.state)
     }
-
-    private fun showSettings() {
-        actions.removeAllViews()
-        title.text = "GitHub接続設定"
-        val repo = EditText(this).apply {
-            hint = "owner/repository"; setText(settings.repository)
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
-            setTextColor(uiTextColor); setHintTextColor(Color.GRAY); setSingleLine()
-        }
-        actions.addView(repo)
-        val token = EditText(this).apply {
-            hint = "GitHubのFine-grained PAT"
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-            setTextColor(uiTextColor); setHintTextColor(Color.GRAY); setSingleLine()
-            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
-        }
-        actions.addView(token)
-        val explanation = TextView(this).apply {
-            text = "指定リポジトリへの Contents / Actions の Read and write 権限が必要です。\n" +
-                "このリポジトリの最新版か、そのForkを指定できます。トークンは端末で暗号化して保存します。\n" +
-                "保存済みトークンを使う場合は空欄のままにしてください。"
-            setTextColor(uiTextColor); textSize = 13f; setPadding(0, dp(12), 0, dp(12))
-        }
-        actions.addView(explanation)
-        val consent = CheckBox(this).apply {
-            text = "Run時にプロジェクトをこのGitHubリポジトリへ送信する"
-            setTextColor(uiTextColor); isChecked = settings.uploadConsent
-        }
-        val publicConsent = CheckBox(this).apply {
-            text = "公開リポジトリを使い、ソースコードが公開されることに同意する"
-            setTextColor(uiTextColor); isChecked = settings.allowPublic
-        }
-        actions.addView(consent); actions.addView(publicConsent)
-        button("保存してRunへ戻る", actions) {
-            val value = repo.text.toString().trim().removeSuffix(".git")
-            if (!Regex("[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+").matches(value)) {
-                details.text = "リポジトリは owner/repo の形式で入力してください。"; return@button
-            }
-            try {
-                if (token.text.isNotBlank()) settings.saveToken(token.text.toString().trim())
-                settings.repository = value
-                settings.uploadConsent = consent.isChecked
-                settings.allowPublic = publicConsent.isChecked
-                token.text.clear()
-                showReady()
-            } catch (_: Exception) { details.text = "トークンを保存できません。再入力してください。" }
-        }
-        button("トークンを削除", actions) { settings.clearToken(); token.text.clear(); details.text = "保存済みトークンを削除しました。" }
-        details.text = "Fine-grained PATはGitHubの Settings → Developer settings → Personal access tokens で作成できます。トークンをチャットに貼る必要はありません。"
-    }
-
     private fun render(state: RunState) {
         title.text = state.title
         progress.visibility = if (state.busy) View.VISIBLE else View.GONE
         details.text = state.log.takeLast(60000)
         actions.removeAllViews()
-        if (state.busy) {
-            button("ビルドの停止を要求", actions) { RunSession.cancel() }
-        } else {
+        if (state.busy) button("ビルドを停止", actions) { RunSession.cancel(); title.text = "停止を待っています" }
+        else {
             if (state.apk?.isFile == true) {
                 button("APKをインストール", actions) { installApk() }
                 button("インストール済みアプリを起動", actions) { launchApk(state.apk) }
@@ -205,16 +117,10 @@ class RunActivity : Activity() {
                     finish()
                 }
             }
-            if (settings.pending() != null) button("前回のビルドに再接続", actions) { RunSession.start(this, tree, settings.pending()) }
             button("もう一度ビルド", actions) { startBuild() }
-            button("GitHub接続設定", actions) { showSettings() }
             button("ログをコピー", actions) {
-                (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager)
-                    .setPrimaryClip(ClipData.newPlainText("KStudio build log", state.log))
+                (getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("KStudio build log", state.log))
             }
-        }
-        if (state.runUrl.startsWith("https://github.com/")) button("Actionsを開く", actions) {
-            runCatching { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(state.runUrl))) }
         }
     }
 

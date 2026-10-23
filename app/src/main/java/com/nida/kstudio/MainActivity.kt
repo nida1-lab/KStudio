@@ -6862,7 +6862,7 @@ class MainActivity : Activity() {
                         "Characters: " +
                         source.length +
                         "\n\n" +
-                        "RunでKotlinをビルドし、実際のAndroidアプリとして起動できます。"
+                        "Runで端末内ビルドし、実際のAndroidアプリとして起動できます。"
                     }
 
                 textSize = 16f
