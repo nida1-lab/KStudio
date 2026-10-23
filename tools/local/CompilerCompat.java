@@ -15,6 +15,12 @@ public final class CompilerCompat {
             throws NoSuchMethodException, IllegalAccessException {
         try { return lookup.findVirtual(owner, name, type); }
         catch (NoSuchMethodException absent) {
+            if (name.equals("copyMemory") && type.equals(MethodType.methodType(void.class, Object.class, long.class, Object.class, long.class, long.class))) {
+                // Resolve this optional ByteBuffer operation lazily, so a JVM
+                // startup probe does not require an ART-only memory-copy API.
+                return MethodHandles.lookup().findStatic(CompilerCompat.class, "copyMemory",
+                    type.insertParameterTypes(0, Object.class)).asType(type.insertParameterTypes(0, owner));
+            }
             if (!name.equals("getAndAddInt") || !type.equals(MethodType.methodType(int.class, Object.class, long.class, int.class))) throw absent;
             // ART exposes the primitive volatile read and CAS operations but
             // omits HotSpot's convenience fetch-and-add method. Preserve its
@@ -32,15 +38,30 @@ public final class CompilerCompat {
             if ((Boolean) intCompare.invoke(unsafe, object, offset, before, before + amount)) return before;
         }
     }
-    public static Method method(Class<?> owner, String name, Class<?>[] parameters) throws NoSuchMethodException {
-        try { return owner.getMethod(name,parameters); }
-        catch (NoSuchMethodException absent) {
-            // IntelliJ probes HotSpot-only copyMemory during class initialization.
-            // The CLI compiler never uses that native-memory path. Retain a
-            // non-null handle; an attempted invocation will fail rather than
-            // perform an unsafe memory operation.
-            if (name.equals("copyMemory")) return Object.class.getMethod("toString");
-            throw absent;
+    public static void copyMemory(Object unsafe, Object source, long sourceOffset, Object destination, long destinationOffset, long length)
+            throws ReflectiveOperationException {
+        if (length < 0) throw new IllegalArgumentException("Negative copy length");
+        if (length == 0) return;
+        if ((source != null && !(source instanceof byte[])) || (destination != null && !(destination instanceof byte[])))
+            throw new UnsupportedOperationException("Compiler memory copying supports native buffers and byte arrays");
+        Class<?> owner = unsafe.getClass();
+        long base = ((Number) owner.getMethod("arrayBaseOffset", Class.class).invoke(unsafe, byte[].class)).longValue();
+        int from = source == null ? 0 : Math.toIntExact(sourceOffset - base);
+        int to = destination == null ? 0 : Math.toIntExact(destinationOffset - base);
+        if (source != null && destination != null) {
+            System.arraycopy(source, from, destination, to, Math.toIntExact(length));
+            return;
+        }
+        if (source != null && (from < 0 || length > ((byte[])source).length - (long)from)) throw new IndexOutOfBoundsException();
+        if (destination != null && (to < 0 || length > ((byte[])destination).length - (long)to)) throw new IndexOutOfBoundsException();
+        Method read = source == null ? owner.getMethod("getByte", long.class) : null;
+        Method write = destination == null ? owner.getMethod("putByte", long.class, byte.class) : null;
+        boolean reverse = source == null && destination == null && destinationOffset > sourceOffset && destinationOffset - sourceOffset < length;
+        for (long step = 0; step < length; step++) {
+            long index = reverse ? length - step - 1 : step;
+            byte value = source == null ? (Byte)read.invoke(unsafe, sourceOffset + index) : ((byte[])source)[Math.toIntExact(from + index)];
+            if (destination == null) write.invoke(unsafe, destinationOffset + index, value);
+            else ((byte[])destination)[Math.toIntExact(to + index)] = value;
         }
     }
     public static Object value(Class<?> type, String name) {

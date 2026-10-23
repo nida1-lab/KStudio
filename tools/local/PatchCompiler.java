@@ -58,10 +58,6 @@ public final class PatchCompiler {
                             methods.computeIfAbsent(owner, k -> new TreeMap<>()).put(name + desc, op);
                         }
                         if (reader.getClassName().equals("org/jetbrains/kotlin/com/intellij/util/containers/Unsafe") &&
-                            owner.equals("java/lang/Class") && name.equals("getMethod")) {
-                            super.visitMethodInsn(Opcodes.INVOKESTATIC, COMPAT, "method",
-                                "(Ljava/lang/Class;Ljava/lang/String;[Ljava/lang/Class;)Ljava/lang/reflect/Method;", false);
-                        } else if (reader.getClassName().equals("org/jetbrains/kotlin/com/intellij/util/containers/Unsafe") &&
                             owner.equals("java/lang/invoke/MethodHandles$Lookup") && name.equals("findVirtual")) {
                             super.visitMethodInsn(Opcodes.INVOKESTATIC, COMPAT, "findVirtual",
                                 "(Ljava/lang/invoke/MethodHandles$Lookup;Ljava/lang/Class;Ljava/lang/String;Ljava/lang/invoke/MethodType;)Ljava/lang/invoke/MethodHandle;", false);
