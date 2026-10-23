@@ -1,4 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <queries><provider android:authorities="com.nida.kstudio.test.documents" /></queries>
+    <application>
+        <provider
+            android:name=".SnapshotFixtureProvider"
+            android:authorities="${applicationId}.snapshot-fixture"
+            android:exported="false" />
+    </application>
 </manifest>

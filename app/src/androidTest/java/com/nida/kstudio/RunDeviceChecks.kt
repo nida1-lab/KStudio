@@ -49,7 +49,7 @@ class RunDeviceChecks : Instrumentation() {
     }
 
     private fun checkDocumentSnapshot() {
-        val tree = DocumentsContract.buildTreeDocumentUri("com.nida.kstudio.test.documents", "root")
+        val tree = DocumentsContract.buildTreeDocumentUri(targetContext.packageName + ".snapshot-fixture", "root")
         val snapshot = ProjectSnapshot.create(targetContext, tree) {}
         try {
             check(snapshot.count == 3) { "Expected three portable files, got ${snapshot.count}" }
