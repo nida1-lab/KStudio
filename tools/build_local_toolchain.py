@@ -52,7 +52,7 @@ def main():
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args()
     root = Path(__file__).resolve().parent.parent
-    fingerprint = hashlib.sha256(b"local-v1" + Path(__file__).read_bytes() + (root / "tools/local/PatchCompiler.java").read_bytes() + (root / "tools/local/CompilerCompat.java").read_bytes()).hexdigest()
+    fingerprint = hashlib.sha256(b"local-v1" + Path(__file__).read_bytes() + b"".join(p.read_bytes() for p in sorted((root / "tools/local").glob("*.java")))).hexdigest()
     stamp = args.out / "stamp"
     if stamp.is_file() and stamp.read_text() == fingerprint:
         print("Bundled toolchain is current")
@@ -104,6 +104,8 @@ def main():
         classpath = os.pathsep.join(asm)
         command("javac", "--release", "8", "-cp", classpath, "-d", helper, root / "tools/local/PatchCompiler.java")
         command("javac", "--release", "8", "-d", shims, root / "tools/local/CompilerCompat.java")
+        command("javac", "--release", "8", "-cp", shims, "-d", helper, root / "tools/local/CompilerCompatTest.java")
+        command("java", "-cp", str(helper) + os.pathsep + str(shims), "CompilerCompatTest")
         patched = temp / "patched"
         command("java", "-cp", str(helper) + os.pathsep + classpath, "PatchCompiler", jars, patched, shims)
         dex = temp / "dex"

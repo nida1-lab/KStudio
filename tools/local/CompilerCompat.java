@@ -1,11 +1,37 @@
 package com.nida.kstudio.compiler;
 
 import java.lang.reflect.*;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.util.*;
 
 /** Optional compiler telemetry on ART, which has no java.management module. */
 public final class CompilerCompat {
     private CompilerCompat() {}
+    private static volatile Method intRead;
+    private static volatile Method intCompare;
+    public static MethodHandle findVirtual(MethodHandles.Lookup lookup, Class<?> owner, String name, MethodType type)
+            throws NoSuchMethodException, IllegalAccessException {
+        try { return lookup.findVirtual(owner, name, type); }
+        catch (NoSuchMethodException absent) {
+            if (!name.equals("getAndAddInt") || !type.equals(MethodType.methodType(int.class, Object.class, long.class, int.class))) throw absent;
+            // ART exposes the primitive volatile read and CAS operations but
+            // omits HotSpot's convenience fetch-and-add method. Preserve its
+            // atomic semantics with a CAS loop, including the previous value.
+            intRead = owner.getMethod("getIntVolatile", Object.class, long.class);
+            intCompare = owner.getMethod("compareAndSwapInt", Object.class, long.class, int.class, int.class);
+            return MethodHandles.lookup().findStatic(CompilerCompat.class, "getAndAddInt",
+                MethodType.methodType(int.class, Object.class, Object.class, long.class, int.class))
+                .asType(type.insertParameterTypes(0, owner));
+        }
+    }
+    public static int getAndAddInt(Object unsafe, Object object, long offset, int amount) throws ReflectiveOperationException {
+        while (true) {
+            int before = (Integer) intRead.invoke(unsafe, object, offset);
+            if ((Boolean) intCompare.invoke(unsafe, object, offset, before, before + amount)) return before;
+        }
+    }
     public static Method method(Class<?> owner, String name, Class<?>[] parameters) throws NoSuchMethodException {
         try { return owner.getMethod(name,parameters); }
         catch (NoSuchMethodException absent) {
