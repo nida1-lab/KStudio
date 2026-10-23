@@ -46,7 +46,7 @@ jobs:
       - name: Prepare bundled offline compiler
         id: local-tools
         run: |
-          sdkmanager 'platforms;android-35' 'build-tools;35.0.0' > /dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'platforms;android-35' 'build-tools;35.0.0' > /dev/null
           python3 tools/build_local_toolchain.py --sdk "$ANDROID_HOME" --out app/build/generated/local-tools
 
       - name: Save prepared compiler
