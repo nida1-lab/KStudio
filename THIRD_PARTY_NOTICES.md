@@ -18,7 +18,7 @@ The aapt2 binary source/build provenance is documented at
 https://github.com/sanjarAmin/AIDE-OS/blob/a236fb318c96ea772e1432b2f3082681bb4030f6/tools/aapt2/FINDINGS.md .
 Its Git blob IDs are checked during packaging. AIDE-OS's GPL IDE sources and compiler shims are not incorporated.
 
-KStudio's compiler compatibility adapter is in `tools/local/`. It maps optional JVM management telemetry to ART-compatible adapters and adapts a HotSpot-specific reflection probe.
+KStudio's compiler compatibility adapter is in `tools/local/`. It maps optional JVM management telemetry to ART-compatible adapters and provides the missing atomic fetch-and-add operation using ART's volatile read and compare-and-swap operations.
 The original Kotlin artifacts are checksum verified. Their resources, service descriptors and license records accompany the compiler DEX archive.
 The Android platform and build-tools notices are also included in the APK's toolchain assets.
 

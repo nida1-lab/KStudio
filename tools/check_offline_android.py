@@ -7,6 +7,8 @@ import sys
 
 def main():
     report = pathlib.Path("offline-device-checks.txt")
+    subprocess.run(["adb", "shell", "input", "keyevent", "KEYCODE_WAKEUP"], check=True, timeout=30)
+    subprocess.run(["adb", "shell", "wm", "dismiss-keyguard"], check=True, timeout=30)
     command = ["adb", "shell", "am", "instrument", "-w",
                "com.nida.kstudio.test/com.nida.kstudio.RunDeviceChecks"]
     try:

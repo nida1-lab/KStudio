@@ -24,8 +24,8 @@ class RunDeviceChecks : Instrumentation() {
         try {
             checkDocumentSnapshot()
             checkApkProvider()
-            checkLocalRunScreen()
             checkOfflineBuilds()
+            checkLocalRunScreen()
             result.putString("stream", "KSTUDIO_DEVICE_CHECKS_OK: recursive SAF snapshot, APK provider, local Run UI\nKSTUDIO_OFFLINE_BUILD_OK: counter XML, console, diagnostics, stable device signing\n")
             finish(Activity.RESULT_OK, result)
         } catch (failure: Throwable) {
@@ -63,14 +63,20 @@ class RunDeviceChecks : Instrumentation() {
     }
 
     private fun checkLocalRunScreen() {
+        uiAutomation.serviceInfo = uiAutomation.serviceInfo.apply {
+            flags = flags or android.accessibilityservice.AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS
+        }
         targetContext.startActivity(Intent(targetContext, RunActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         var visible = false
-        repeat(100) {
-            val root = uiAutomation.rootInActiveWindow
-            if (root != null && root.findAccessibilityNodeInfosByText("端末内でビルド").isNotEmpty()) visible = true
-            if (!visible) Thread.sleep(100)
+        val deadline = System.currentTimeMillis() + 45000
+        var lastWindow = ""
+        while (!visible && System.currentTimeMillis() < deadline) {
+            val roots = uiAutomation.windows.mapNotNull { it.root } + listOfNotNull(uiAutomation.rootInActiveWindow)
+            visible = roots.any { it.findAccessibilityNodeInfosByText("端末内でビルド").isNotEmpty() }
+            lastWindow = roots.joinToString("\n") { it.toString() }
+            if (!visible) Thread.sleep(200)
         }
-        check(visible) { "Local Run screen did not open" }
+        check(visible) { "Local Run screen did not open. Active windows: $lastWindow" }
         uiAutomation.executeShellCommand("input keyevent 4").close()
     }
 
