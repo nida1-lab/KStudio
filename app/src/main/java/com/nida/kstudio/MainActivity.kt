@@ -142,6 +142,7 @@ class MainActivity : Activity() {
     private companion object {
         const val REQUEST_UPLOAD_FILE = 4101
         const val REQUEST_UPLOAD_FOLDER = 4102
+        const val REQUEST_RUN_PROJECT = 4103
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -2493,10 +2494,31 @@ class MainActivity : Activity() {
             val starter =
                 "package com.example.app\n\n" +
                 "import android.app.Activity\n" +
-                "import android.os.Bundle\n\n" +
+                "import android.os.Bundle\n" +
+                "import android.widget.Button\n" +
+                "import android.widget.LinearLayout\n" +
+                "import android.widget.TextView\n\n" +
                 "class MainActivity : Activity() {\n\n" +
                 "    override fun onCreate(savedInstanceState: Bundle?) {\n" +
                 "        super.onCreate(savedInstanceState)\n" +
+                "        var count = 0\n" +
+                "        val result = TextView(this).apply {\n" +
+                "            text = \"Count: 0\"\n" +
+                "            textSize = 28f\n" +
+                "        }\n" +
+                "        val add = Button(this).apply {\n" +
+                "            text = \"ADD\"\n" +
+                "            setOnClickListener {\n" +
+                "                count++\n" +
+                "                result.text = \"Count: \" + count\n" +
+                "            }\n" +
+                "        }\n" +
+                "        setContentView(LinearLayout(this).apply {\n" +
+                "            orientation = LinearLayout.VERTICAL\n" +
+                "            setPadding(24, 48, 24, 24)\n" +
+                "            addView(result)\n" +
+                "            addView(add)\n" +
+                "        })\n" +
                 "    }\n" +
                 "}\n"
 
@@ -2580,7 +2602,30 @@ class MainActivity : Activity() {
             1001 -> handleProjectFolderResult(data)
             REQUEST_UPLOAD_FILE -> handleUploadFiles(data)
             REQUEST_UPLOAD_FOLDER -> handleUploadFolder(data)
+            REQUEST_RUN_PROJECT -> {
+                if (data.getBooleanExtra("run_started", false)) saveRunHistory(true)
+                val path = data.getStringExtra("error_path")
+                if (path != null) openBuildDiagnostic(path, data.getIntExtra("error_line", 1))
+            }
         }
+    }
+
+    private fun openBuildDiagnostic(path: String, line: Int) {
+        val tree = folderRootUri ?: return
+        var uri = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
+        val segments = path.removePrefix("./").split('/')
+        if (segments.any { it.isBlank() || it == ".." || it == "." }) return
+        for (segment in segments) {
+            val entry = findChildByName(uri, segment)
+            if (entry == null) {
+                showKStudioMessage("コンパイルエラー", "$path:$line\nログのパスに対応するファイルが見つかりません。")
+                return
+            }
+            uri = entry.uri
+        }
+        openManagedFile(uri, segments.last())
+        lineInput.setText(line.toString())
+        jumpToLine()
     }
 
     private fun handleProjectFolderResult(data: Intent) {
@@ -5293,27 +5338,24 @@ class MainActivity : Activity() {
 
     private fun runKStudio() {
 
-        val source =
-            codeEditor.text
-                .toString()
-
-        val error =
-            validateCode(source)
-
-        if (error != null) {
-
-            saveRunHistory(false)
-
-            showError(
-                line = error.first,
-                code = "K001",
-                fileName = currentFileName,
-                message = error.second,
-                source = "KStudio"
-            )
-
+        val tree = folderRootUri
+        if (tree == null) {
+            showKStudioMessage("Run", "先にプロジェクトフォルダを開いてください。")
             return
         }
+        if (currentFileUri == null && codeEditor.text.isNotBlank()) {
+            showKStudioMessage("Run", "編集中のコードをファイルに保存してから実行してください。")
+            return
+        }
+        val launch = {
+            @Suppress("DEPRECATION")
+            startActivityForResult(Intent(this, RunActivity::class.java)
+                .putExtra("tree_uri", tree.toString()), REQUEST_RUN_PROJECT)
+        }
+        if (isDirty) saveCurrentFile(launch) else launch()
+    }
+
+    private fun renderLayoutPreview() {
 
         val treeUri =
             folderRootUri
@@ -7055,7 +7097,7 @@ class MainActivity : Activity() {
                         "Characters: " +
                         source.length +
                         "\n\n" +
-                        "Run でコードの基本チェックを実行できます。"
+                        "RunでKotlinをビルドし、実際のAndroidアプリとして起動できます。"
                     }
 
                 textSize = 16f
@@ -7075,6 +7117,16 @@ class MainActivity : Activity() {
         previewContainer.addView(
             preview
         )
+
+        val column = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        previewContainer.removeAllViews()
+        column.addView(preview)
+        column.addView(Button(this).apply {
+            text = "XMLレイアウトをプレビュー"
+            styleKStudioButton(this)
+            setOnClickListener { renderLayoutPreview() }
+        })
+        previewContainer.addView(column)
     }
 
     // DP

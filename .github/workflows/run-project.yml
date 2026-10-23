@@ -1,0 +1,124 @@
+name: Run project
+run-name: KStudio Run ${{ inputs.request_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: Immutable commit containing .kstudio/project.zip
+        required: true
+        type: string
+      request_id:
+        description: Unique KStudio request ID
+        required: true
+        type: string
+      source_sha256:
+        description: SHA-256 of the source ZIP
+        required: true
+        type: string
+  workflow_call:
+    inputs:
+      source_ref:
+        required: true
+        type: string
+      request_id:
+        required: true
+        type: string
+      source_sha256:
+        default: ''
+        type: string
+      smoke_test:
+        default: false
+        type: boolean
+      fixture:
+        default: run-counter
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build-project:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      REQUEST_ID: ${{ inputs.request_id }}
+      SOURCE_SHA: ${{ inputs.source_sha256 }}
+      SOURCE_REF: ${{ inputs.source_ref }}
+      SMOKE_TEST: ${{ inputs.smoke_test || false }}
+      FIXTURE: ${{ inputs.fixture || 'run-counter' }}
+      GRADLE_USER_HOME: ${{ github.workspace }}/.run-gradle
+    steps:
+      - name: Checkout build tools
+        uses: actions/checkout@v4
+        with:
+          path: control
+          persist-credentials: false
+      - name: Checkout project snapshot
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source_ref }}
+          path: source
+          persist-credentials: false
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Prepare Android project
+        id: prepare
+        shell: bash
+        run: |
+          mkdir -p dist
+          if [[ "$SMOKE_TEST" == "true" ]]; then
+            [[ "$FIXTURE" == "run-counter" || "$FIXTURE" == "run-console" ]]
+            mkdir -p source/.kstudio
+            python3 -c 'import os, shutil; shutil.make_archive("source/.kstudio/project", "zip", "source/examples/" + os.environ["FIXTURE"])'
+            SOURCE_SHA=$(sha256sum source/.kstudio/project.zip | cut -d ' ' -f 1)
+            echo "SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
+          fi
+          python3 control/tools/prepare_run_project.py source/.kstudio/project.zip kstudio-work \
+            --sha256 "$SOURCE_SHA" --metadata dist/project-metadata.json > dist/build.log 2>&1
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: ${{ steps.prepare.outputs.gradle_version }}
+          cache-disabled: true
+      - name: Install stable debug signing key
+        run: |
+          mkdir -p "$HOME/.android"
+          cp control/tools/run-debug.keystore "$HOME/.android/debug.keystore"
+      - name: Compile Kotlin and Android APK
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle -p kstudio-work --no-daemon --console=plain assembleDebug --stacktrace 2>&1 | tee -a dist/build.log
+      - name: Collect APK and compiler diagnostics
+        if: always()
+        run: python3 control/tools/collect_run_result.py kstudio-work dist "$REQUEST_ID" "$SOURCE_SHA"
+      - name: Upload project result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kstudio-run-${{ inputs.request_id }}
+          path: |
+            dist/project.apk
+            dist/build.log
+            dist/run-result.json
+          if-no-files-found: error
+          retention-days: 3
+      - name: Enable KVM
+        if: inputs.smoke_test
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Execute compiled code on Android
+        if: inputs.smoke_test
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          profile: pixel_6
+          disable-animations: true
+          script: python3 control/tools/smoke_run_android.py dist/project.apk "$FIXTURE"

@@ -1,0 +1,8 @@
+.gradle/
+**/build/
+local.properties
+*.jks
+*.keystore
+!tools/run-debug.keystore
+__pycache__/
+*.pyc
