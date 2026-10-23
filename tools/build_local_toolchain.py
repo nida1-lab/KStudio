@@ -108,10 +108,10 @@ def main():
         command("java", "-cp", str(helper) + os.pathsep + classpath, "PatchCompiler", jars, patched, shims)
         dex = temp / "dex"
         dex.mkdir()
-        tools = sorted((args.sdk / "build-tools").glob("*/lib/d8.jar"))
-        if not tools:
-            raise RuntimeError("Android D8 build tools are required")
-        command("java", "-Xmx5g", "-cp", tools[-1], "com.android.tools.r8.D8", "--release", "--min-api", "30", "--lib", android,
+        d8 = args.sdk / "build-tools/35.0.0/lib/d8.jar"
+        if not d8.is_file():
+            raise RuntimeError("Android build-tools 35.0.0 are required")
+        command("java", "-Xmx5g", "-cp", d8, "com.android.tools.r8.D8", "--release", "--min-api", "30", "--lib", android,
                 "--output", dex, *sorted(patched.glob("*.jar")), *sorted(shims.rglob("*.class")))
         with zipfile.ZipFile(assets / "kotlinc.jar", "w", zipfile.ZIP_DEFLATED) as out:
             seen = set()

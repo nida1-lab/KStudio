@@ -10,6 +10,8 @@ import com.android.tools.r8.D8Command
 import com.android.tools.r8.OutputMode
 import org.w3c.dom.Element
 import java.io.File
+import java.io.FilterOutputStream
+import java.io.OutputStream
 import java.security.KeyPairGenerator
 import java.security.KeyStore
 import java.security.PrivateKey
@@ -20,6 +22,7 @@ import java.util.concurrent.TimeUnit
 import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
 import java.util.zip.ZipOutputStream
+import java.util.zip.CRC32
 import javax.security.auth.x500.X500Principal
 import javax.xml.parsers.DocumentBuilderFactory
 import javax.xml.transform.TransformerFactory
@@ -75,19 +78,21 @@ class LocalProjectBuilder(private val context: Context) {
             }
             val packagedResources = File(resultDir, "resources.ap_")
             val symbols = File(resultDir, "symbols").apply { mkdirs() }
+            val symbolTable = File(symbols, "R.txt")
             val link = mutableListOf(toolchain.aapt2.absolutePath, "link", "-o", packagedResources.absolutePath,
                 "--manifest", manifestFile.absolutePath, "-I", toolchain.androidJar.absolutePath,
-                "--min-sdk-version", "26", "--target-sdk-version", "35", "--auto-add-overlay", "--output-text-symbols", symbols.absolutePath)
+                "--min-sdk-version", "26", "--target-sdk-version", "35", "--auto-add-overlay", "--output-text-symbols", symbolTable.absolutePath)
             if (compiled.isFile) link.addAll(listOf("-R", compiled.absolutePath))
             File(main, "assets").takeIf { it.isDirectory }?.let { link.addAll(listOf("-A", it.absolutePath)) }
             report("Androidリソースをリンク中")
             execute(link, resultDir, checkCancelled, log)
-            File(symbols, "R.txt").takeIf { it.isFile }?.let { table ->
+            symbolTable.takeIf { it.isFile }?.let { table ->
                 val resourceClass = File(generated, "R.kt")
                 resourceClass.writeText(resourceSource(namespace, table.readLines()))
                 sources.add(resourceClass)
             }
-            val libraries = File(project, "libs").takeIf { it.isDirectory }?.listFiles()?.filter { it.extension == "jar" }.orEmpty()
+            val libraries = listOf(File(project, "libs"), File(project, "app/libs"))
+                .flatMap { it.listFiles()?.filter { file -> file.extension == "jar" }.orEmpty() }.distinctBy { it.canonicalPath }
             val classes = File(resultDir, "classes").apply { mkdirs() }
             report("Kotlinを端末内でコンパイル中", "${sources.size} Kotlin files / ローカルコンパイラ 2.2.10")
             val compilerOutput = toolchain.compile(sources, libraries, classes)
@@ -104,13 +109,30 @@ class LocalProjectBuilder(private val context: Context) {
                 .setOutput(dex.toPath(), OutputMode.DexIndexed).build())
             report("APKを作成中")
             val unsigned = File(resultDir, "unsigned.apk")
-            ZipOutputStream(unsigned.outputStream().buffered()).use { zip ->
+            val counted = CountingOutput(unsigned.outputStream().buffered())
+            ZipOutputStream(counted).use { zip ->
                 ZipFile(packagedResources).use { base ->
                     val entries = base.entries()
                     while (entries.hasMoreElements()) {
                         val entryZip = entries.nextElement()
                         if (entryZip.isDirectory) continue
-                        zip.putNextEntry(ZipEntry(entryZip.name)); base.getInputStream(entryZip).use { it.copyTo(zip) }; zip.closeEntry()
+                        val outputEntry = ZipEntry(entryZip.name)
+                        if (entryZip.name == "resources.arsc") {
+                            val bytes = base.getInputStream(entryZip).use { it.readBytes() }
+                            outputEntry.method = ZipEntry.STORED
+                            outputEntry.size = bytes.size.toLong()
+                            outputEntry.crc = CRC32().apply { update(bytes) }.value
+                            val offset = counted.count + 30 + outputEntry.name.toByteArray(Charsets.UTF_8).size
+                            val padding = ((4 - (offset + 6) % 4) % 4).toInt()
+                            outputEntry.extra = ByteArray(padding + 6).apply {
+                                this[0] = 0x35; this[1] = 0xD9.toByte()
+                                this[2] = (padding + 2).toByte(); this[4] = 4
+                            }
+                            zip.putNextEntry(outputEntry); zip.write(bytes)
+                        } else {
+                            zip.putNextEntry(outputEntry); base.getInputStream(entryZip).use { it.copyTo(zip) }
+                        }
+                        zip.closeEntry()
                     }
                 }
                 dex.listFiles()!!.filter { it.extension == "dex" }.forEach { file ->
@@ -124,7 +146,7 @@ class LocalProjectBuilder(private val context: Context) {
             val certificate = store.getCertificate("kstudio.local.debug") as X509Certificate
             ApkSigner.Builder(listOf(ApkSigner.SignerConfig.Builder("KStudio", key, listOf(certificate)).build()))
                 .setInputApk(unsigned).setOutputApk(apk).setMinSdkVersion(26)
-                .setV1SigningEnabled(true).setV2SigningEnabled(true).setV3SigningEnabled(false).build().sign()
+                .setV1SigningEnabled(true).setV2SigningEnabled(true).setV3SigningEnabled(false).setV4SigningEnabled(false).build().sign()
             checkCancelled()
             val info = context.packageManager.getPackageArchiveInfo(apk.absolutePath, 0)
             require(info != null && info.packageName != context.packageName) { "生成したAPKのパッケージを確認できません。" }
@@ -135,6 +157,12 @@ class LocalProjectBuilder(private val context: Context) {
             log.appendText("\n" + (failure.message ?: failure.javaClass.simpleName) + "\n")
             throw LocalBuildException(log.readText().takeLast(100000))
         }
+    }
+
+    private class CountingOutput(output: OutputStream) : FilterOutputStream(output) {
+        var count = 0L
+        override fun write(value: Int) { out.write(value); count++ }
+        override fun write(bytes: ByteArray, offset: Int, length: Int) { out.write(bytes, offset, length); count += length }
     }
 
     private fun execute(command: List<String>, directory: File, cancelled: () -> Unit, log: File) {

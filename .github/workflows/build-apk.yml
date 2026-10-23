@@ -35,7 +35,23 @@ jobs:
           gradle-version: '8.9'
 
       - name: Cache bundled local toolchain
+        id: local-cache
         uses: actions/cache@v4
+        with:
+          path: |
+            app/build/generated/local-tools
+            .local-toolchain-cache
+          key: kstudio-local-v1-${{ hashFiles('tools/build_local_toolchain.py', 'tools/local/**') }}
+
+      - name: Prepare bundled offline compiler
+        id: local-tools
+        run: |
+          sdkmanager 'platforms;android-35' 'build-tools;35.0.0' > /dev/null
+          python3 tools/build_local_toolchain.py --sdk "$ANDROID_HOME" --out app/build/generated/local-tools
+
+      - name: Save prepared compiler
+        if: steps.local-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
         with:
           path: |
             app/build/generated/local-tools
